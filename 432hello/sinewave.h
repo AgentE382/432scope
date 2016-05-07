@@ -1,6 +1,6 @@
 // One period of a sine wave, in 100 samples, 8-bit.
 
-const unsigned char gSineWave[100] = {127,
+unsigned char gSineWave[100] = {127,
    135,
    143,
    151,

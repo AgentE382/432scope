@@ -3,28 +3,34 @@
 #include "pushbutton.h"
 #include "uart.h"
 #include "periodic_send_test.h"
+#include "adc14.h"
 
 /*
  * This project is for testing code that leads to an oscilloscope.
  *
  * WHAT IT DOES:
- * -sends a sinusoid ranging across unsigned short.  100Hz sample-send.
- * -start/stop controlled by incoming UART commands or by button 2.
- * -LED1 indicates active transmitting state.
- * -while transmitting, LED2-red indicates RX, LED2-green indicates TX
+ * -10 kHz sample rate.
+ * -3 Mbps UART.
+ *
+ * PST monitor:
+ * -LED1 indicates active Periodic Send Test.
+ *
+ * ADC monitor:
+ * -LEDB indicates active single-channel-repeat mode.
+ *
+ * UART monitor:
+ * -while transmitting, LED2R indicates RX, LED2G indicates TX
  *
  *
  * WHAT IT USES:
  *
  * DCOCLK = 48 MHz = MCLK
  * SMCLK = /4 = 12 MHz
+ * HSMCLK = /2 = 24 MHz
  * Pushbutton ports p1.1 and p1.4 are taken.
  * TimerA0 is taken by the pushbuttons for debounce.
- * TimerA1 controls the transmission
- *
- *
- * TODO:
- * -- make it send the sine wave!
+ * TimerA1 controls the periodic send test
+ * TimerA2 triggers the ADC
  *
  */
 
@@ -42,7 +48,8 @@ void main(void)
     InitializeLEDs( );
     InitializeButtons( );
     InitializeUart( );
-    InitializePST( );
+ //   InitializePST( );
+    InitializeADC( );
     __enable_interrupt();
 
     while(1){}
@@ -77,10 +84,13 @@ void InitializeSubClocks( )
 {
 	CS->KEY = CS_KEY_VAL;
 	// zero out the critical stuff, then set up SMCLK and ACLK.
-	CS->CTL1 &= ~( CS_CTL1_SELS_MASK + CS_CTL1_DIVS_MASK + CS_CTL1_SELA_MASK | CS_CTL1_DIVA_MASK );
-	CS->CTL1 |= CS_CTL1_SELS__DCOCLK; // source for (H)SMCLK is DCO, this was default already
+	CS->CTL1 &= ~( CS_CTL1_SELS_MASK + CS_CTL1_DIVS_MASK
+			+ CS_CTL1_SELA_MASK + CS_CTL1_DIVA_MASK
+			+ CS_CTL1_DIVHS_MASK );
+	CS->CTL1 |= CS_CTL1_SELS__DCOCLK; // source for {H,}SMCLK is DCO, this was default already
 	CS->CTL1 |= CS_CTL1_DIVS__4;
 //	CS->CTL1 |= CS_CTL1_SELA__VLOCLK; // set up ACLK on ~9.4 kHz VLOCLK
 //	CS->CTL1 |= CS_CTL1_DIVA__1;
+	CS->CTL1 |= CS_CTL1_DIVHS__2; // this should be 24 MHz
 	CS->KEY = 0;
 }

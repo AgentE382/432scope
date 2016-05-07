@@ -4,6 +4,9 @@
 #include "debounce.h"
 #include "uart.h"
 #include "periodic_send_test.h"
+#include "adc14.h"
+
+
 
 // button debouncer structs
 SwitchDebouncer button1Debouncer;
@@ -25,6 +28,9 @@ void Button1Pressed( )
 	/*
 	 *  NOW do whatever it is button 1 presses should do.
 	 */
+
+
+	ADC_Go( );
 }
 
 void Button1Released( )
@@ -45,8 +51,8 @@ void Button2Pressed( )
 	/*
 	 * do whatever button2presses do.
 	 */
+	ADC_Stop( );
 
-	StartPST( );
 }
 
 void Button2Released( )
@@ -57,7 +63,7 @@ void Button2Released( )
 	/*
 	 * do whatever button2releases do.
 	 */
-	StopPST( );
+//	StopPST( );
 }
 
 void InitializeButtons( )

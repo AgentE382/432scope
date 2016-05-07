@@ -1,7 +1,8 @@
 #include <msp.h>
 #include "uart.h"
 #include "led.h"
-#include "periodic_send_test.h"
+#include "adc14.h"
+
 
 // 256 so that the indexes will roll over properly.
 // from their point of view, this is circular.
@@ -28,11 +29,19 @@ void InitializeUart( )
 	// choose clock source
 	EUSCI_A0->CTLW0 |= EUSCI_A_CTLW0_SSEL__SMCLK;
 
-	// set baud rate. right now it's 460800
+	/* set baud rate to 460800
 	EUSCI_A0->BRW = 1;									// BRx
 	EUSCI_A0->MCTLW = (0x0 << EUSCI_A_MCTLW_BRS_OFS) | 	// BRSx
 			(10 << EUSCI_A_MCTLW_BRF_OFS) | 				// BRFx
 			(1 );										// S16
+*/
+
+	/* set baud (BITCLK) to 3000000 */
+	EUSCI_A0->BRW = 4;									// BRx
+	EUSCI_A0->MCTLW = (0x0 << EUSCI_A_MCTLW_BRS_OFS) | 	// BRSx
+			(0 << EUSCI_A_MCTLW_BRF_OFS) | 				// BRFx
+			(0 );										// S16 (oversampling)
+
 
 	// restart
 	EUSCI_A0->CTLW0 &= ~EUSCI_A_CTLW0_SWRST;
@@ -44,6 +53,30 @@ void InitializeUart( )
 	NVIC->ISER[0] |= ( 1 << EUSCIA0_IRQn );
 }
 
+//
+// HANDLE INCOMING COMMANDS FROM THE LAPTOP HERE
+//
+
+#define UARTRX_START_TRANSMISSION 's'
+#define UARTRX_STOP_TRANSMISSION 'p'
+
+inline void Uart_ProcessReceivedByte( unsigned char incoming )
+{
+	switch ( incoming ) {
+	case UARTRX_START_TRANSMISSION:
+		ADC_Go( );
+		break;
+	case UARTRX_STOP_TRANSMISSION:
+		ADC_Stop( );
+		break;
+	default:break;
+	}
+}
+
+//
+// TRANSMIT STUFF
+//
+
 inline void Uart_StartSend( )
 {
 	EUSCI_A0->IE |= EUSCI_A_IE_TXIE;
@@ -51,7 +84,7 @@ inline void Uart_StartSend( )
 	TURN_ON_LEDG;
 }
 
-void UartSendData( unsigned char* data, unsigned char length )
+inline void UartSendData( unsigned char* data, unsigned char length )
 {
 	unsigned char i;
 	for ( i=0; i<length; i++ ) {
@@ -61,7 +94,7 @@ void UartSendData( unsigned char* data, unsigned char length )
 	Uart_StartSend( );
 }
 
-void UartSend16Little( unsigned short data )
+inline void UartSend16Little( unsigned short data )
 {
 	// send 16 bits, LSByte first.
 	uartTxBuffer[uartTxQueueIndex] = data & 0x00FF;
@@ -71,7 +104,7 @@ void UartSend16Little( unsigned short data )
 	Uart_StartSend( );
 }
 
-void UartSend8Aligned16( unsigned char data )
+inline void UartSend8Aligned16( unsigned char data )
 {
 	// send 8 bits, padded so the laptop will understand them on a 16-bit word boundary.
 	uartTxBuffer[uartTxQueueIndex] = data;
@@ -81,20 +114,18 @@ void UartSend8Aligned16( unsigned char data )
 	Uart_StartSend( );
 }
 
-#define UARTRX_START_TRANSMISSION 's'
-#define UARTRX_STOP_TRANSMISSION 'p'
-
-inline void Uart_ProcessReceivedByte( unsigned char incoming )
+inline void UartSendString( unsigned char* string )
 {
-	switch ( incoming ) {
-	case UARTRX_START_TRANSMISSION:
-		StartPST( );
-		break;
-	case UARTRX_STOP_TRANSMISSION:
-		StopPST( );
-		break;
-	default:break;
+	unsigned char stringCounter = 0;
+	while ( 1 ) {
+		if ( string[stringCounter] == '\0' ) {
+			break;
+		}
+		uartTxBuffer[uartTxQueueIndex] = string[stringCounter];
+		uartTxQueueIndex++;
+		stringCounter++;
 	}
+	Uart_StartSend( );
 }
 
 void euscia0_ISR( )
@@ -122,37 +153,4 @@ void euscia0_ISR( )
 	}
 }
 
-/*
 
-
-void UartSendByte( unsigned char byte )
-{
-	uartTxBuffer[0] = byte;
-	uartTxBuffer[1] = '\0';
-	Uart_StartSend( );
-}
-
-void UartSend16( unsigned short data )
-{
-	// intel macs expect LSByte first!!!!
-	uartTxBuffer[0] = ( data & 0x00FF );
-	uartTxBuffer[1] = data >> 8;
-	uartTxBuffer[2] = '\0';
-	Uart_StartSend( );
-}
-
-void UartSendData( unsigned char* data )
-{
-	// copy the data into our local place ...
-	unsigned char counter = 0;
-	while ( data[counter] != '\0' ) {
-		uartTxBuffer[counter] = data[counter];
-		counter++;
-	}
-	uartTxBuffer[counter] = '\0';
-
-	// set the buffer index to 0 and enable the transmitter interrupt.
-	Uart_StartSend( );
-}
-
-*/
