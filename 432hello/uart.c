@@ -94,6 +94,23 @@ inline void UartSendData( unsigned char* data, unsigned char length )
 	Uart_StartSend( );
 }
 
+volatile char sendEdgeFlag = 0;
+
+inline void UartSend16Little_WithFlags( unsigned short data )
+{
+	// if sendEdgeFlag == 1, set byte 15 to 1.
+	if ( sendEdgeFlag == 1 ) {
+		data |= BITF;
+		sendEdgeFlag = 0;
+	}
+	// send 16 bits, LSByte first.
+	uartTxBuffer[uartTxQueueIndex] = data & 0x00FF;
+	uartTxQueueIndex++;
+	uartTxBuffer[uartTxQueueIndex] = data >> 8;
+	uartTxQueueIndex++;
+	Uart_StartSend( );
+}
+
 inline void UartSend16Little( unsigned short data )
 {
 	// send 16 bits, LSByte first.

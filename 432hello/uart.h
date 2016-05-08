@@ -5,6 +5,8 @@ void InitializeUart( );
 
 // warning: this DOES NOT CHECK for overflowing the send buffer!!!
 // add that soon!
+inline void UartSend16Little_WithFlags( unsigned short data );
+
 inline void UartSendData( unsigned char* data, unsigned char length );
 
 inline void UartSend16Little( unsigned short data );

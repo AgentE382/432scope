@@ -131,9 +131,6 @@ void ADC_Stop( )
 	UartSendString( "-----DAC STOP-----\n\r\0" );
 }
 
-
-volatile unsigned short readbuf = 0;
-
 void adc_ISR( )
 {
 	switch ( ADC14->IV ) {
