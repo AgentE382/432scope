@@ -16,7 +16,6 @@
  */
 
 
-
 import Foundation
 
 class SampleBuffer {
@@ -26,7 +25,6 @@ class SampleBuffer {
     private var samples = ContiguousArray<Sample>()
 
     private(set) var capacity:Int = 0
-    
     private var writeIndex:Int = 0
     
     init() {

@@ -14,8 +14,6 @@ import Cocoa
 
  */
 typealias Time = CGFloat
-typealias TimeRange = (newest:Time, oldest:Time) // [0.0, bufferLength]
-typealias VoltageRange = (min:Voltage, max:Voltage)
 typealias SampleIndexRange = (newest:Int, oldest:Int)
 
 class Channel {

@@ -10,17 +10,11 @@ import Cocoa
 
 class ChannelViewController: NSViewController {
 
-    // UI Outlets
+    // header: channel name, big readout, color picker
     @IBOutlet weak var nstfChannelName: NSTextField!
     @IBOutlet weak var nstfVolts: NSTextField!
-    @IBOutlet weak var checkboxEnabled: NSButton!
     @IBOutlet weak var colorWell: NSColorWell!
 
-    
-    var uiTimer:NSTimer? = nil
-    
-    var channel:Channel? = nil
-    
     func updateVoltmeter( ) {
         nstfVolts.stringValue = getVoltageAsString(channel!.getInstantaneousVoltage())
     }
@@ -32,17 +26,33 @@ class ChannelViewController: NSViewController {
         channel!.displayColor = sender.color
     }
     
-    @IBAction func enablePressed(sender: AnyObject) {
-        do {
-            if ( checkboxEnabled.state == NSOnState ) {
-                try channel!.channelOn( )
-            } else {
-                try channel!.channelOff( )
-            }
-        } catch {
-            print( "Something went wrong." )
+    // trigger controls
+    @IBOutlet weak var radioTriggerNone: NSButton!
+    @IBOutlet weak var radioTriggerRising: NSButton!
+    @IBOutlet weak var editableTriggerLevel: NSTextField!
+    
+    @IBAction func radioButtonActivated(sender: NSButton) {
+        if ( sender == radioTriggerNone ) {
+            print("no trigger selected")
+            editableTriggerLevel.enabled = false
+        }
+        if ( sender == radioTriggerRising) {
+            print("rising trigger selected")
+            editableTriggerLevel.enabled = true
         }
     }
+    
+    @IBAction func levelFieldActivated(sender: NSTextField) {
+        print("levelFieldActivated")
+        let number = sender.objectValue as! Double
+        print("\(number)")
+    }
+    
+    
+    
+    
+    var uiTimer:NSTimer? = nil
+    var channel:Channel? = nil
     
     func loadChannel( newChannel:Channel ) {
         // if there's already a channel on this view, get rid of it
@@ -54,23 +64,24 @@ class ChannelViewController: NSViewController {
         
         // update channel name.
         nstfChannelName.stringValue = channel!.getName()
-        
-        // update the enable checkbox
-        checkboxEnabled.enabled = true
-        if ( channel!.isChannelOn == true ) {
-            checkboxEnabled.state = NSOnState
-        } else {
-            checkboxEnabled.state = NSOffState
-        }
-        
+
         // color well
         colorWell.enabled = true
         colorWell.color = channel!.displayColor
         
         // start UI timer!
-        uiTimer = NSTimer.scheduledTimerWithTimeInterval(4/CONFIG_DISPLAY_REFRESH_RATE, target: self, selector: #selector(updateVoltmeter), userInfo: nil, repeats: true)
+        uiTimer = NSTimer.scheduledTimerWithTimeInterval(5/CONFIG_DISPLAY_REFRESH_RATE, target: self, selector: #selector(updateVoltmeter), userInfo: nil, repeats: true)
         uiTimer!.tolerance = 0.005
         print( "ChannelViewController loaded \(channel!.getName())." )
+        
+        // switch it on!
+        do { try channel!.channelOn() }
+        catch { print("Channel loaded but wouldn't switch on.") }
+        
+        // enable the radio buttons
+        radioTriggerNone.enabled = true
+        radioTriggerRising.enabled = true
+        radioTriggerNone.state = NSOnState
     }
     
     func unloadCurrentChannel( ) {
@@ -92,8 +103,10 @@ class ChannelViewController: NSViewController {
     }
     
     func disableControls( ) {
-        checkboxEnabled.enabled = false
         colorWell.enabled = false
+        radioTriggerNone.enabled = false
+        radioTriggerRising.enabled = false
+        editableTriggerLevel.enabled = false
     }
     
     override func viewDidLoad() {
@@ -103,6 +116,8 @@ class ChannelViewController: NSViewController {
         
         // we've loaded, but there's no channel attached yet, so disable controls
         disableControls()
+        
+        editableTriggerLevel.objectValue = Double(0.0)
     }
     
 }

@@ -28,12 +28,12 @@ let colorGroundLine = NSColor(calibratedWhite: 0.6, alpha: 1.0)
 let CONFIG_DISPLAY_MAGNFICATION_FACTOR:Double = 1.2
 
 // outer Scope View voltage limits
-let CONFIG_DISPLAY_VOLTAGE_LIMITS:(min:Voltage, max:Voltage) = (-20, 20)
+let CONFIG_DISPLAY_VOLTAGE_LIMITS = VoltageRange(min:-20, max:20)
 
 // minimum and maximum voltage display spans (zoom levels!)
-let CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS:(min:Voltage, max:Voltage) = (0.1, CONFIG_DISPLAY_VOLTAGE_LIMITS.max - CONFIG_DISPLAY_VOLTAGE_LIMITS.min)
+let CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS:(min:Voltage, max:Voltage) = (0.1, CONFIG_DISPLAY_VOLTAGE_LIMITS.span)
 
-// grid line spacing at the largest possible visible span.
+// grid line spacing constant.
 let CONFIG_DISPLAY_TIME_GRID_CONSTANT:CGFloat = 80
 let CONFIG_DISPLAY_VOLTAGE_GRID_CONSTANT:CGFloat = 50
 
@@ -56,10 +56,10 @@ let CONFIG_SINGLECHANNEL_SAMPLERATE:Int = 10000
 let CONFIG_BUFFER_LENGTH:Int = 10
 
 // the range of times that can be displayed on screen.
-let CONFIG_DISPLAY_TIME_LIMITS:(newest:Time, oldest:Time) = (0.0, Time(CONFIG_BUFFER_LENGTH))
+let CONFIG_DISPLAY_TIME_LIMITS = TimeRange(newest:0.0, oldest:10.0)
 
 // the minimum and maximum time spans (zoom levels)
-let CONFIG_DISPLAY_TIME_SPAN_LIMITS:(min:Time, max:Time) = (0.001, Time(CONFIG_BUFFER_LENGTH))
+let CONFIG_DISPLAY_TIME_SPAN_LIMITS:(min:Time, max:Time) = (0.001, CONFIG_DISPLAY_TIME_LIMITS.span)
 
 
 
