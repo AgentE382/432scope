@@ -77,11 +77,17 @@ inline void Uart_ProcessReceivedByte( unsigned char incoming )
 // TRANSMIT STUFF
 //
 
+unsigned char saturation = 0;
 inline void Uart_StartSend( )
 {
 	EUSCI_A0->IE |= EUSCI_A_IE_TXIE;
 	EUSCI_A0->IFG |= EUSCI_A_IFG_TXIFG;
+	TURN_ON_LEDR;
 	TURN_ON_LEDG;
+	saturation = uartTxQueueIndex - uartTxSendIndex;
+	if ( saturation > 100 ) {
+		TURN_ON_LED1;
+	}
 }
 
 inline void UartSendData( unsigned char* data, unsigned char length )
@@ -151,14 +157,13 @@ void euscia0_ISR( )
 	case 0:
 		break;
 	case 2: // RX
-		TURN_ON_LEDR;
 		Uart_ProcessReceivedByte( EUSCI_A0->RXBUF );
-		TURN_OFF_LEDR;
 		break;
 	case 4: // TX
 		// if this is the end, shut down the interrupt and bail.
 		if ( uartTxSendIndex == uartTxQueueIndex ) {
 			EUSCI_A0->IE &= ~EUSCI_A_IE_TXIE;
+			TURN_OFF_LEDR;
 			TURN_OFF_LEDG;
 			break;
 		}

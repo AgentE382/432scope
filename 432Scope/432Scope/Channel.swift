@@ -16,7 +16,23 @@ import Cocoa
 typealias Time = CGFloat
 typealias SampleIndexRange = (newest:Int, oldest:Int)
 
-class Channel {
+class Channel : ChannelDelegate {
+    
+    //
+    // TRIGGERING
+    //
+    
+    func setTrigger( triggerLevel:Voltage? ) {
+        if let level = triggerLevel {
+            sampleBuffer.trigger = RisingEdgeTrigger(capacity: sampleRateInHertz*bufferLengthInSeconds, channelToNotify: self as ChannelDelegate, level:Sample(translateVoltageToSample(level)) )
+        } else {
+            sampleBuffer.trigger = nil
+        }
+    }
+    
+    func triggerEventDetected(samplesSinceLastTrigger: Int) {
+        print( "\(getName()) got a trigger event" )
+    }
     
     // display parameters
     var displayColor = NSColor(calibratedRed: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)

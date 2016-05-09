@@ -33,12 +33,14 @@ class ChannelViewController: NSViewController {
     
     @IBAction func radioButtonActivated(sender: NSButton) {
         if ( sender == radioTriggerNone ) {
-            print("no trigger selected")
+            print("setting trigger nil")
             editableTriggerLevel.enabled = false
+            channel!.setTrigger(nil)
         }
         if ( sender == radioTriggerRising) {
-            print("rising trigger selected")
-            editableTriggerLevel.enabled = true
+            print("setting rising edge trigger 0V")
+            //editableTriggerLevel.enabled = true
+            channel!.setTrigger(0.0)
         }
     }
     

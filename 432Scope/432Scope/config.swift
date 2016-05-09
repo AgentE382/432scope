@@ -50,7 +50,7 @@ let CONFIG_SAMPLE_MAX_VALUE:Sample = 16383 // 2^14-1
 let CONFIG_SINGLECHANNEL_DEVICE:String = "00000001"
 
 // the 432's sample rate, in Hertz
-let CONFIG_SINGLECHANNEL_SAMPLERATE:Int = 10000
+let CONFIG_SINGLECHANNEL_SAMPLERATE:Int = 100000
 
 // the buffer length, in seconds
 let CONFIG_BUFFER_LENGTH:Int = 10

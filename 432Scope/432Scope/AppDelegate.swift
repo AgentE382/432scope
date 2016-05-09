@@ -34,6 +34,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("here we go...")*/
         
         
+        // circular array test
+/*        let length = 10
+        let elementsToStore = 15
+        var testArray = CircularArray<Int>(capacity:length, repeatedValue: -1)
+        
+        for i in 0...elementsToStore {
+            testArray.storeNewEntry(i)
+        }
+        
+        let sliceCount = 20
+        let sliceLength = 15
+        for i in 0..<sliceLength {
+            print( "[\(testArray.getSubArray(0, last:i))" )
+        }
+        
+        print(" test over. ")*/
+        
+        
         // load system colors to use as channel colors, removing black and white
         let appleColorList = NSColorList(named: "Apple")
         let scopeTraceColors = NSColorList(name: "Scope Trace Colors" )

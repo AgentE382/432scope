@@ -12,14 +12,13 @@
  * -10 kHz sample rate.
  * -3 Mbps UART.
  *
- * PST monitor:
- * -LED1 indicates active Periodic Send Test.
- *
  * ADC monitor:
  * -LEDB indicates active single-channel-repeat mode.
  *
  * UART monitor:
- * -while transmitting, LED2R indicates RX, LED2G indicates TX
+ * -tx: LEDR and LEDG are on when there's tx data in the UART pipe.
+ * 		so the led's whiteness indicates saturation.
+ * 	LED1 comes on if the UART buffer is about to overflow.
  *
  *
  * WHAT IT USES:
