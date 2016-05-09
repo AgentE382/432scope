@@ -14,6 +14,7 @@ import Cocoa
 
  */
 typealias Time = CGFloat
+typealias Frequency = Double
 typealias SampleIndexRange = (newest:Int, oldest:Int)
 
 class Channel : ChannelDelegate {
@@ -24,14 +25,38 @@ class Channel : ChannelDelegate {
     
     func setTrigger( triggerLevel:Voltage? ) {
         if let level = triggerLevel {
-            sampleBuffer.trigger = RisingEdgeTrigger(capacity: sampleRateInHertz*bufferLengthInSeconds, channelToNotify: self as ChannelDelegate, level:Sample(translateVoltageToSample(level)) )
+            sampleBuffer.trigger = RisingEdgeTrigger(capacity: sampleRateInHertz*bufferLengthInSeconds, channelToNotify: self as ChannelDelegate, level:translateVoltageToSample(level) )
         } else {
             sampleBuffer.trigger = nil
         }
     }
     
-    func triggerEventDetected(samplesSinceLastTrigger: Int) {
-        print( "\(getName()) got a trigger event" )
+    private var periodMinSample:Sample = 0
+    private var periodMaxSample:Sample = 0
+    private var periodLengthInSamples:Int = 0
+    
+    var periodMin:Voltage {
+        get {
+            return translateSampleToVoltage(periodMinSample)
+        }
+    }
+    
+    var periodMax:Voltage {
+        get {
+            return translateSampleToVoltage(periodMaxSample)
+        }
+    }
+    
+    var triggerFrequency:Double {
+        get {
+            return Double(CONFIG_SINGLECHANNEL_SAMPLERATE)/Double(periodLengthInSamples)
+        }
+    }
+    
+    func triggerEventDetected( event:TriggerEvent ) {
+        periodMinSample = event.periodMin
+        periodMaxSample = event.periodMax
+        periodLengthInSamples = event.periodLengthInSamples
     }
     
     // display parameters

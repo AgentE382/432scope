@@ -38,6 +38,7 @@ class MainViewController: NSViewController {
     }
     
     func channelIsReady( newChannel:Channel ) {
+        
         // we must pass this new channel to our children!
         channels.append(newChannel)
         scopeView.loadChannel(newChannel)

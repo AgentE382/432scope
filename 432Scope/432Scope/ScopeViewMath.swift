@@ -13,14 +13,14 @@ class ScopeViewMath {
     
     // GETTABLE: the view data set maintained here, needed for drawing.
     static private(set) var imageSize:CGSize = CGSize()
-    static private(set) var vvRange:VoltageRange = VoltageRange(min:-5, max:5)
-    static private(set) var tvRange:TimeRange = TimeRange(newest:0.0, oldest:0.5)
+    static private(set) var vvRange:VoltageRange = VoltageRange(min:-20, max:20)
+    static private(set) var tvRange:TimeRange = TimeRange(newest:0.0, oldest:0.05)
     static private(set) var voltageGridLines:[GridLine] = []
     static private(set) var timeGridLines:[GridLine] = []
     
     // PRIVATE: the viewable spans, used to detect whether a view has changed size or just position.
-    static private var vvRangeSpan:Voltage = 10
-    static private var tvRangeSpan:Time = 0.5
+    static private var vvRangeSpan:Voltage = 40
+    static private var tvRangeSpan:Time = 0.05
     
     // PRIVATE: scaling factors which must get recalculated whenever the view zooms or changes size.
     static private var voltageScaleFactor:Voltage = 0
@@ -29,8 +29,8 @@ class ScopeViewMath {
     static private var xDiffToTimeScaleFactor:Time = 0.01
     
     // PRIVATE: the grid spacing, also subject to recalculation.
-    static private var voltageGridSpacing:Voltage = 2
-    static private var timeGridSpacing:Time = 0.2
+    static private var voltageGridSpacing:Voltage = 5
+    static private var timeGridSpacing:Time = 0.02
     
     class func initializeViewMath( ) {
         initializeGridSpacingCalculator()

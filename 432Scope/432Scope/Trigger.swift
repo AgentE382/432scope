@@ -8,9 +8,6 @@
 
 import Foundation
 
-protocol ChannelDelegate {
-    func triggerEventDetected( samplesSinceLastTrigger:Int )
-}
 
 class Trigger {
     
@@ -36,12 +33,13 @@ class Trigger {
 
 
 class RisingEdgeTrigger: Trigger {
-    var level:Sample
+    var level:Int
     
-    init( capacity:Int, channelToNotify:ChannelDelegate, level:Sample ) {
+    init( capacity:Int, channelToNotify:ChannelDelegate, level:Int ) {
         print("---risingEdgeTrigger capacity:\(capacity) level:\(level)")
         self.level = level
         super.init(capacity: capacity, channelToNotify: channelToNotify)
+        triggerEvent = TriggerEvent()
     }
     
     //
@@ -54,10 +52,27 @@ class RisingEdgeTrigger: Trigger {
     }
     
     var triggerState:RisingEdgeTriggerState = .ExpectingRise
+    var triggerEvent = TriggerEvent()
     
-    override func processSample(sample:Sample) {
+    func trackTriggerEvent( newSample:Sample ) {
+        triggerEvent.periodLengthInSamples += 1
+        if ( newSample > triggerEvent.periodMax ) {
+            triggerEvent.periodMax = newSample
+        }
+        if ( newSample < triggerEvent.periodMin ) {
+            triggerEvent.periodMin = newSample
+        }
+    }
+    func resetTriggerEvent( ) {
+        triggerEvent = TriggerEvent()
+    }
+    
+    override func processSample(newSample:Sample) {
         var nextState:RisingEdgeTriggerState = .ExpectingRise
         var outcomeOfTest:Bool = false
+        
+        // we have to cast it because level is an Int.  Level is an int because it may be desirable to set a trigger level outside the channel's range.
+        let sample = Int(newSample)
         
         switch (triggerState) {
             
@@ -70,7 +85,6 @@ class RisingEdgeTrigger: Trigger {
                 // got one!
                 nextState = .ExpectingFall
                 outcomeOfTest = true
-                channelToNotify!.triggerEventDetected(-1)
             }
             break
             
@@ -89,5 +103,28 @@ class RisingEdgeTrigger: Trigger {
         // store the result, advance the state
         triggerEventBuffer.storeNewEntry(outcomeOfTest)
         triggerState = nextState
+        trackTriggerEvent(newSample)
+        
+        if ( outcomeOfTest == true ) {
+            // we detected an event. send it off and reset
+            channelToNotify!.triggerEventDetected(triggerEvent)
+            resetTriggerEvent()
+        }
+    }
+}
+
+protocol ChannelDelegate {
+    func triggerEventDetected( event:TriggerEvent )
+}
+
+struct TriggerEvent {
+    var periodLengthInSamples:Int
+    var periodMin:Sample
+    var periodMax:Sample
+    
+    init() {
+        periodLengthInSamples = 0
+        periodMax = Sample.min
+        periodMin = Sample.max
     }
 }

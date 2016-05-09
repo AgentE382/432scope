@@ -4,7 +4,6 @@
         <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="10117"/>
         <capability name="box content view" minToolsVersion="7.0"/>
-        <capability name="stacking Non-gravity area distributions on NSStackView" minToolsVersion="7.0" minSystemVersion="10.11"/>
     </dependencies>
     <scenes>
         <!--Application-->
@@ -772,60 +771,59 @@
                                     <action selector="colorWellAction:" target="Ba5-GN-eye" id="KzP-CK-8Pc"/>
                                 </connections>
                             </colorWell>
-                            <box title="Trigger" borderType="line" translatesAutoresizingMaskIntoConstraints="NO" id="xih-be-oxt">
-                                <rect key="frame" x="7" y="340" width="236" height="76"/>
-                                <view key="contentView" id="Y0c-O9-RDG">
-                                    <rect key="frame" x="1" y="1" width="234" height="60"/>
+                            <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="JAF-Nq-Uul">
+                                <rect key="frame" x="198" y="407" width="44" height="17"/>
+                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="(none)" id="EVt-hn-cRL">
+                                    <font key="font" size="11" name="Menlo-Regular"/>
+                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <box title="Trigger" borderType="line" translatesAutoresizingMaskIntoConstraints="NO" id="kNA-Ys-tx2">
+                                <rect key="frame" x="2" y="316" width="246" height="86"/>
+                                <view key="contentView" id="Mdz-hc-VQC">
+                                    <rect key="frame" x="1" y="1" width="244" height="70"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <subviews>
-                                        <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="N6c-v9-6By">
-                                            <rect key="frame" x="10" y="10" width="56" height="40"/>
-                                            <subviews>
-                                                <button translatesAutoresizingMaskIntoConstraints="NO" id="JyR-zL-nE9">
-                                                    <rect key="frame" x="-1" y="23" width="55" height="18"/>
-                                                    <buttonCell key="cell" type="radio" title="None" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="NH4-eN-uUH">
-                                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                        <font key="font" metaFont="system"/>
-                                                    </buttonCell>
-                                                    <connections>
-                                                        <action selector="radioButtonActivated:" target="Ba5-GN-eye" id="gix-y7-ebb"/>
-                                                    </connections>
-                                                </button>
-                                                <button translatesAutoresizingMaskIntoConstraints="NO" id="kCW-AF-HEE">
-                                                    <rect key="frame" x="-1" y="-1" width="59" height="18"/>
-                                                    <buttonCell key="cell" type="radio" title="Rising" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="bbZ-pv-yit">
-                                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                        <font key="font" metaFont="system"/>
-                                                    </buttonCell>
-                                                    <connections>
-                                                        <action selector="radioButtonActivated:" target="Ba5-GN-eye" id="VrD-7y-Abd"/>
-                                                    </connections>
-                                                </button>
-                                            </subviews>
-                                            <visibilityPriorities>
-                                                <integer value="1000"/>
-                                                <integer value="1000"/>
-                                            </visibilityPriorities>
-                                            <customSpacing>
-                                                <real value="3.4028234663852886e+38"/>
-                                                <real value="3.4028234663852886e+38"/>
-                                            </customSpacing>
-                                        </stackView>
-                                        <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="pfc-O9-hZX">
-                                            <rect key="frame" x="76" y="19" width="134" height="22"/>
-                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="6Ug-Eg-CDv">
-                                                <numberFormatter key="formatter" formatterBehavior="custom10_4" numberStyle="decimal" generatesDecimalNumbers="YES" lenient="YES" minimumIntegerDigits="1" maximumIntegerDigits="3" minimumFractionDigits="4" maximumFractionDigits="4" id="sf8-3d-Fl2"/>
+                                        <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="JEP-Fz-bk5">
+                                            <rect key="frame" x="2" y="44" width="96" height="22"/>
+                                            <popUpButtonCell key="cell" type="push" title="None" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="kO7-kT-jdY" id="LKh-Oa-rLt">
+                                                <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                                <font key="font" metaFont="smallSystem"/>
+                                                <menu key="menu" id="H2y-23-bW8">
+                                                    <items>
+                                                        <menuItem title="None" state="on" id="kO7-kT-jdY"/>
+                                                        <menuItem title="Rising Edge" id="a3F-8I-5kc"/>
+                                                    </items>
+                                                </menu>
+                                            </popUpButtonCell>
+                                            <connections>
+                                                <action selector="triggerTypeSelected:" target="Ba5-GN-eye" id="gwJ-gL-MZC"/>
+                                            </connections>
+                                        </popUpButton>
+                                        <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="PCB-c9-O8m">
+                                            <rect key="frame" x="100" y="45" width="125" height="22"/>
+                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="right" drawsBackground="YES" id="nbf-BA-UsN">
+                                                <numberFormatter key="formatter" formatterBehavior="custom10_4" numberStyle="decimal" minimumIntegerDigits="1" maximumIntegerDigits="10" minimumFractionDigits="4" maximumFractionDigits="4" id="5M4-7S-sDL"/>
                                                 <font key="font" metaFont="system"/>
                                                 <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                             </textFieldCell>
                                             <connections>
-                                                <action selector="levelFieldActivated:" target="Ba5-GN-eye" id="8DG-kk-mGR"/>
+                                                <action selector="triggerLevelChanged:" target="Ba5-GN-eye" id="6mt-6d-Qra"/>
                                             </connections>
                                         </textField>
-                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="eBL-pe-xgN">
-                                            <rect key="frame" x="213" y="22" width="13" height="17"/>
-                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="V" id="IJ2-I0-ZZJ">
+                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="LFZ-LZ-zle">
+                                            <rect key="frame" x="152" y="10" width="89" height="30"/>
+                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="(hertz)" id="gFK-vw-dVt">
+                                                <font key="font" size="20" name="Menlo-Regular"/>
+                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                            </textFieldCell>
+                                        </textField>
+                                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="aIc-fj-rZr">
+                                            <rect key="frame" x="228" y="48" width="13" height="17"/>
+                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="V" id="nVM-5J-HVC">
                                                 <font key="font" metaFont="system"/>
                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -833,14 +831,16 @@
                                         </textField>
                                     </subviews>
                                     <constraints>
-                                        <constraint firstItem="eBL-pe-xgN" firstAttribute="leading" secondItem="pfc-O9-hZX" secondAttribute="trailing" constant="5" id="13D-36-Z2E"/>
-                                        <constraint firstItem="N6c-v9-6By" firstAttribute="top" secondItem="Y0c-O9-RDG" secondAttribute="top" constant="10" id="ACL-kC-pzE"/>
-                                        <constraint firstItem="pfc-O9-hZX" firstAttribute="leading" secondItem="N6c-v9-6By" secondAttribute="trailing" constant="10" id="Fht-4l-wWj"/>
-                                        <constraint firstItem="N6c-v9-6By" firstAttribute="leading" secondItem="Y0c-O9-RDG" secondAttribute="leading" constant="10" id="Jxi-tU-aLv"/>
-                                        <constraint firstItem="eBL-pe-xgN" firstAttribute="baseline" secondItem="pfc-O9-hZX" secondAttribute="baseline" id="Suf-3G-ZCo"/>
-                                        <constraint firstItem="pfc-O9-hZX" firstAttribute="centerY" secondItem="N6c-v9-6By" secondAttribute="centerY" id="fPA-YM-l1h"/>
-                                        <constraint firstAttribute="trailing" secondItem="eBL-pe-xgN" secondAttribute="trailing" constant="10" id="g3h-NI-Bsw"/>
-                                        <constraint firstAttribute="bottom" secondItem="kCW-AF-HEE" secondAttribute="bottom" constant="10" id="kw8-2D-UrG"/>
+                                        <constraint firstAttribute="bottom" secondItem="LFZ-LZ-zle" secondAttribute="bottom" constant="10" id="5M4-Zh-Sw8"/>
+                                        <constraint firstItem="PCB-c9-O8m" firstAttribute="centerY" secondItem="JEP-Fz-bk5" secondAttribute="centerY" id="8h1-0Z-AeS"/>
+                                        <constraint firstItem="aIc-fj-rZr" firstAttribute="leading" secondItem="PCB-c9-O8m" secondAttribute="trailing" constant="5" id="EhY-si-R4r"/>
+                                        <constraint firstAttribute="trailing" secondItem="LFZ-LZ-zle" secondAttribute="trailing" constant="5" id="FNt-ej-kef"/>
+                                        <constraint firstItem="LFZ-LZ-zle" firstAttribute="top" secondItem="PCB-c9-O8m" secondAttribute="bottom" constant="5" id="FqS-QO-rUY"/>
+                                        <constraint firstItem="PCB-c9-O8m" firstAttribute="leading" secondItem="JEP-Fz-bk5" secondAttribute="trailing" constant="5" id="N7V-W1-pso"/>
+                                        <constraint firstAttribute="trailing" secondItem="aIc-fj-rZr" secondAttribute="trailing" constant="5" id="aMn-EQ-4w6"/>
+                                        <constraint firstItem="JEP-Fz-bk5" firstAttribute="leading" secondItem="Mdz-hc-VQC" secondAttribute="leading" constant="5" id="hYB-Xc-Bam"/>
+                                        <constraint firstItem="aIc-fj-rZr" firstAttribute="baseline" secondItem="PCB-c9-O8m" secondAttribute="baseline" id="n4O-yv-vSx"/>
+                                        <constraint firstItem="JEP-Fz-bk5" firstAttribute="top" secondItem="Mdz-hc-VQC" secondAttribute="top" constant="5" id="pfZ-1J-I7m"/>
                                     </constraints>
                                 </view>
                                 <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
@@ -848,25 +848,28 @@
                             </box>
                         </subviews>
                         <constraints>
-                            <constraint firstItem="xih-be-oxt" firstAttribute="top" secondItem="jAM-gA-dV7" secondAttribute="bottom" constant="10" id="3U9-lt-eP9"/>
+                            <constraint firstItem="JAF-Nq-Uul" firstAttribute="top" secondItem="jAM-gA-dV7" secondAttribute="bottom" constant="2" id="C7V-fI-kDv"/>
                             <constraint firstItem="rKj-4L-cRP" firstAttribute="leading" secondItem="5Tj-af-fHU" secondAttribute="leading" constant="20" id="O3G-mf-yeb"/>
-                            <constraint firstItem="xih-be-oxt" firstAttribute="leading" secondItem="5Tj-af-fHU" secondAttribute="leading" constant="10" id="RDq-oi-XQE"/>
                             <constraint firstItem="AVl-sI-8g5" firstAttribute="leading" secondItem="5Tj-af-fHU" secondAttribute="leading" constant="10" id="TOi-W5-zGO"/>
                             <constraint firstAttribute="trailing" secondItem="jAM-gA-dV7" secondAttribute="trailing" constant="10" id="TpI-QN-zyn"/>
+                            <constraint firstAttribute="trailing" secondItem="kNA-Ys-tx2" secondAttribute="trailing" constant="5" id="UPD-pg-byT"/>
                             <constraint firstItem="AVl-sI-8g5" firstAttribute="baseline" secondItem="jAM-gA-dV7" secondAttribute="baseline" id="Zw6-jM-UZ2"/>
+                            <constraint firstItem="kNA-Ys-tx2" firstAttribute="leading" secondItem="5Tj-af-fHU" secondAttribute="leading" constant="5" id="bEI-kU-RAL"/>
                             <constraint firstAttribute="trailing" secondItem="rKj-4L-cRP" secondAttribute="trailing" constant="20" id="e1a-em-w0w"/>
                             <constraint firstItem="rKj-4L-cRP" firstAttribute="top" secondItem="5Tj-af-fHU" secondAttribute="top" constant="20" id="g30-Ys-cdX"/>
-                            <constraint firstAttribute="trailing" secondItem="xih-be-oxt" secondAttribute="trailing" constant="10" id="gRm-Kh-ckP"/>
                             <constraint firstItem="jAM-gA-dV7" firstAttribute="top" secondItem="rKj-4L-cRP" secondAttribute="bottom" constant="2" id="iNv-NN-4wb"/>
+                            <constraint firstAttribute="trailing" secondItem="JAF-Nq-Uul" secondAttribute="trailing" constant="10" id="vXs-dI-UH5"/>
+                            <constraint firstItem="kNA-Ys-tx2" firstAttribute="top" secondItem="JAF-Nq-Uul" secondAttribute="bottom" constant="5" id="wFf-S3-iMQ"/>
                         </constraints>
                     </view>
                     <connections>
                         <outlet property="colorWell" destination="AVl-sI-8g5" id="lte-SO-0IH"/>
-                        <outlet property="editableTriggerLevel" destination="pfc-O9-hZX" id="pY7-w3-eQQ"/>
+                        <outlet property="labelFrequencyDisplay" destination="LFZ-LZ-zle" id="L6p-h7-soX"/>
                         <outlet property="nstfChannelName" destination="rKj-4L-cRP" id="Xnb-Cn-jku"/>
+                        <outlet property="nstfReadingType" destination="JAF-Nq-Uul" id="LYw-lG-K7H"/>
                         <outlet property="nstfVolts" destination="jAM-gA-dV7" id="CEe-5r-NSr"/>
-                        <outlet property="radioTriggerNone" destination="JyR-zL-nE9" id="UFL-KI-8ua"/>
-                        <outlet property="radioTriggerRising" destination="kCW-AF-HEE" id="xjc-fM-rNj"/>
+                        <outlet property="popupTriggerType" destination="JEP-Fz-bk5" id="nJh-ON-25w"/>
+                        <outlet property="textLevelEntryBox" destination="PCB-c9-O8m" id="BKK-uE-lSF"/>
                     </connections>
                 </viewController>
                 <customObject id="Ewa-xq-XYI" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>

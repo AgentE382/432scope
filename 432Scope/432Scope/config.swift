@@ -144,5 +144,18 @@ func getTimeAsString( time:Time ) ->String {
     return String(format:"%.4f", time) + " S"
 }
 
-
+func getFrequencyAsString( freq:Frequency ) ->String {
+   /* if ( freq < 0.001 ) {
+        // display micro
+        let displayNumber = time * 1000
+        return String(format:"%3.4f", displayNumber) + " \u{03BC}S"
+    }
+    if ( abs(time) < 1 ) {
+        // display milli
+        let displayNumber = time * 1000
+        return String(format:"%3.4f", displayNumber) + " mS"
+    }*/
+    let displayNumber = freq
+    return String(format:"%.2f", displayNumber) + " Hz"
+}
 
