@@ -11,7 +11,7 @@ import Foundation
 
 class Trigger {
     
-    private(set) var triggerEventBuffer = CircularArray<Bool>()
+    private(set) var triggerEventBuffer = CircularArray<Int>()
     private(set) var channelToNotify:ChannelDelegate?
     
     init() {
@@ -20,13 +20,27 @@ class Trigger {
     
     init( capacity:Int, channelToNotify:ChannelDelegate ) {
         print( "---trigger.init capacity:\(capacity)" )
-        triggerEventBuffer = CircularArray<Bool>(capacity: capacity, repeatedValue: false)
+        triggerEventBuffer = CircularArray<Int>(capacity: capacity, repeatedValue: 0)
         self.channelToNotify = channelToNotify
     }
     
     func processSample( sample:Sample ) {
         // this should be overridden
         print("---trigger.processSample SHOULD NOT BE GETTING CALLED.")
+    }
+    
+    func getNewestEventIndex( minimumIndex:Int ) -> Int? {
+        // return the index of the newest event older than this particular index, or nil if no such thing exists.
+        var index = minimumIndex
+        while ( index < triggerEventBuffer.capacity ) {
+            if ( triggerEventBuffer.getEntry(index) == 1 ) {
+                // found it.
+                return index
+            }
+            index += 1
+        }
+        // got through the entire circle and nothing.
+        return nil
     }
 }
 
@@ -69,7 +83,7 @@ class RisingEdgeTrigger: Trigger {
     
     override func processSample(newSample:Sample) {
         var nextState:RisingEdgeTriggerState = .ExpectingRise
-        var outcomeOfTest:Bool = false
+        var outcomeOfTest:Int = 0
         
         // we have to cast it because level is an Int.  Level is an int because it may be desirable to set a trigger level outside the channel's range.
         let sample = Int(newSample)
@@ -84,7 +98,7 @@ class RisingEdgeTrigger: Trigger {
             if ( sample >= level ) {
                 // got one!
                 nextState = .ExpectingFall
-                outcomeOfTest = true
+                outcomeOfTest = 1
             }
             break
             
@@ -105,7 +119,7 @@ class RisingEdgeTrigger: Trigger {
         triggerState = nextState
         trackTriggerEvent(newSample)
         
-        if ( outcomeOfTest == true ) {
+        if ( outcomeOfTest == 1 ) {
             // we detected an event. send it off and reset
             channelToNotify!.triggerEventDetected(triggerEvent)
             resetTriggerEvent()

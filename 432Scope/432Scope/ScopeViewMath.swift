@@ -35,7 +35,7 @@ class ScopeViewMath {
     class func initializeViewMath( ) {
         initializeGridSpacingCalculator()
     }
-    
+
     //
     // UPDATE()
     //
@@ -331,7 +331,7 @@ class Translate: ScopeViewMath {
     
 }
 
-class GridLine {
+struct GridLine {
     
     //
     // THIS is really just a tuple, but it's a class so I could write constructors with sane initialization values.
@@ -363,7 +363,7 @@ class GridLine {
     }
 }
 
-class VoltageRange {
+struct VoltageRange {
     var min:Voltage = 0
     var max:Voltage = 1
     
@@ -428,7 +428,7 @@ class VoltageRange {
     }
 }
 
-class TimeRange {
+struct TimeRange {
     var newest:Time = 0
     var oldest:Time = 1
     

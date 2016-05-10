@@ -8,13 +8,19 @@
 
 import Cocoa
 
+enum DrawingModeState {
+    case Raw
+    case Triggered
+}
+
 class ScopeViewController: NSViewController {
+    @IBOutlet weak var scopeImage: ScopeImageView!
     
     //
     // INTERFACE CONNECTIONS
     //
     
-    @IBOutlet weak var scopeImage: ScopeImageView!
+
     @IBOutlet weak var nsbZoomOutX: NSButton!
     @IBOutlet weak var nsbZoomInX: NSButton!
     @IBOutlet weak var nsbZoomOutY: NSButton!
@@ -38,6 +44,17 @@ class ScopeViewController: NSViewController {
     @IBAction func buttonZoomInY(sender: AnyObject) {
         let newVVRange = zoomY( Voltage(1/CONFIG_DISPLAY_MAGNFICATION_FACTOR))
         ScopeViewMath.update(nil, vvRange: newVVRange, tvRange: nil)
+    }
+    
+    //
+    // DRAWING MODE CONTROLS
+    //
+    
+    @IBOutlet weak var buttonDrawingModeRaw: NSButton!
+    @IBOutlet weak var buttonDrawingModeTriggered: NSButton!
+    
+    @IBAction func drawingModeChanged(sender: NSButton) {
+        print("drawingModeChanged")
     }
     
     //

@@ -16,10 +16,10 @@ import Foundation
 // If you need locking or write-safety, do it in whatever structure encapsulates an instance of this, because there's none of that in here!!!!!
 //
 
-class CircularArray<T> {
+class CircularArray<T:Comparable> {
     
     private var theArray:ContiguousArray<T>
-    private var capacity:Int
+    private(set) var capacity:Int
     private var writeIndex:Int
     
     private var newestEntryIndex:Int {
@@ -47,6 +47,10 @@ class CircularArray<T> {
     
     func getNewestEntry( ) -> T {
         return theArray[newestEntryIndex]
+    }
+    
+    func getEntry( index:Int ) -> T {
+        return theArray[wrapIndex(index+newestEntryIndex)]
     }
     
     func wrapIndex( index:Int ) -> Int {
@@ -86,6 +90,44 @@ class CircularArray<T> {
         return []
     }
     
+/*    func getSubArrayMinMax( first:Int, last:Int ) -> (min:T, max:T) {
+        let newCapacity = last - first + 1
+        let safeFirst = wrapIndex(first+newestEntryIndex)
+        let safeLast = wrapIndex(last+newestEntryIndex)
+        if ( newCapacity > capacity ) {
+            print("-getSubArrayMinMax: subCapacity > capacity. what are you doing.")
+        }
+        if ( safeLast >= safeFirst ) {
+            // contiguous. one slice.
+            let slice = theArray[safeFirst...safeLast]
+            
+            return (min:slice.minElement()!, max:slice.maxElement()!)
+        }
+        if ( safeLast < safeFirst ) {
+            // two slices.
+            let slice1 = theArray[safeFirst...(capacity-1)]
+            let slice2 = theArray[0...safeLast]
+            var rval:(min:T, max:T)
+            let s1min = slice1.minElement()!
+            let s1max = slice1.maxElement()!
+            let s2min = slice2.minElement()!
+            let s2max = slice2.maxElement()!
+            if ( s1min < s2min ) {
+                rval.min = s1min
+            } else {
+                rval.min = s2min
+            }
+            if ( s1max > s2max ) {
+                rval.max = s1max
+            } else {
+                rval.max = s2max
+            }
+            return rval
+        }
+        // i cannot help you.  poor soul.
+        return (min:theArray[0],max:theArray[0])
+    }*/
+    
     func storeNewEntry( entry:T ) {
  //       print("-storeNewEntry writeIndex:\(writeIndex) entry:\(entry)")
         theArray[writeIndex] = entry
@@ -102,9 +144,3 @@ class CircularArray<T> {
     }
     
 }
-
-
-
-
-
-

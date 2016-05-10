@@ -122,6 +122,11 @@ class Channel : ChannelDelegate {
     // FRONTEND
     //
     
+ /*   func getTimeRangeMinMax( timeRange:TimeRange ) -> (min:Sample, max:Sample) {
+        let indexRange = translateTimeRangeToSampleIndices(timeRange)
+        return sampleBuffer.getLocalMinMax(indexRange)
+    }*/
+    
     func getName( ) -> String {
         if ( device == nil ) {
             return "i am a channel without a device."
@@ -164,6 +169,10 @@ class Channel : ChannelDelegate {
     
     var groundSampleValue:Sample {
         return Sample(translateVoltageToSample(0.0))
+    }
+    
+    func translateTimeToSampleIndex( time:Time ) -> Int {
+        return Int(nearbyint(time*Time(sampleRateInHertz)))
     }
     
     // this must return Int so that it can provide a value for voltages that are actually

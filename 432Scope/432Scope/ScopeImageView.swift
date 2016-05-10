@@ -26,17 +26,6 @@ class ScopeImageView: NSImageView {
     // the channels we're responsible for drawing
     var channels:[Channel] = []
     
-    // drawing ranges
-//    var vvRange:VoltageRange = (CONFIG_AFE_VOLTAGE_RANGE.min, CONFIG_AFE_VOLTAGE_RANGE.max)
-//    var tvRange:TimeRange = (0.0, 2.0)
-    
-    // grid info
-//    var voltageGridPositions:[CGFloat] = []
-//    var timeGridPositions:[CGFloat] = []
-//    var voltageGridLines:[GridLine] = []
-//    var timeGridLines:[GridLine] = []
-//    var groundLineYCoord:CGFloat = 100
-    
     //
     // PLOTTING SAMPLE VALUES ON SCREEN
     //
@@ -61,8 +50,8 @@ class ScopeImageView: NSImageView {
     //
     
     func drawSamplesBezier( ch:Int ) {
-        // this is pretty fast. 13-14% without the NSPointArray involved.
-
+        // one channel: ~26%
+        
         // set up this channel's color and translation factor
         channels[ch].displayColor.setStroke()
         recalculateSampleTranslationFactor(ch)
@@ -82,52 +71,67 @@ class ScopeImageView: NSImageView {
             xPosition -= sampleXSpacing
         }
         
-        // draw
+        // draw.  DO NOT closePath!!
+        bezierPath.stroke()
+    }
+    
+    func drawSamplesPointArray(ch:Int) {
+        // one channel: ~22%, yeah, it's a little faster ...
+        
+        // set up this channel's color and translation factor
+        channels[ch].displayColor.setStroke()
+        recalculateSampleTranslationFactor(ch)
+        
+        // get the samples, their spacing, starting X ...
+        let sampleArray = channels[ch].getSampleRange(ScopeViewMath.tvRange)
+        let sampleXSpacing:CGFloat = frame.width / CGFloat(sampleArray.count-1)
+        var xPosition = frame.width
+        
+        // set up the bezier path object ...
+        let bezierPath = NSBezierPath()
+        bezierPath.moveToPoint(NSPoint(x: xPosition, y: translateSampleToGraphicsY(sampleArray[0])))
+        
+        // build an array of points ...
+        let points = NSPointArray.alloc(sampleArray.count)
+        for i in 0..<sampleArray.count {
+            points[i] = NSPoint(x: xPosition, y: translateSampleToGraphicsY(sampleArray[i]))
+            xPosition -= sampleXSpacing
+        }
+        
+
+        bezierPath.appendBezierPathWithPoints(points, count: sampleArray.count)
+
+        points.dealloc(sampleArray.count)
+        
+        // draw.  DO NOT closePath!!
         bezierPath.stroke()
     }
 
     let gridLineLabelAttributes:[String:AnyObject] = [ NSForegroundColorAttributeName: NSColor(calibratedWhite:0.6, alpha:1.0),
                                                        NSFontAttributeName: NSFont(name:"Menlo", size:10.0)! ]
     
-//    let gridLineLabelFrequency:Int = 2 // draw every 2nd label.
-    
     func drawGridLines( ) {
         // GRIDLINES
         colorGridLine.setFill()
         
-//        var labelCounter = 1
         // VERTICAL (TIME) GRIDLINES
         for tLine in ScopeViewMath.timeGridLines {
-            
             // line
             tLine.color.setFill()
             NSRectFill(NSRect(x: tLine.lineCoord, y: 0, width: 1, height: frame.height))
-            
-/*            if ( labelCounter < gridLineLabelFrequency ) {
-                labelCounter += 1
-                continue
-            }
-            labelCounter=1*/
-            
+            // label
             if let lineLabel = tLine.label {
                 let stringSize = lineLabel.sizeWithAttributes(gridLineLabelAttributes)
                 lineLabel.drawAtPoint(NSPoint(x:tLine.lineCoord, y:frame.height-stringSize.height), withAttributes: gridLineLabelAttributes)
             }
         }
         
-//        labelCounter = 1
         // HORIZONTAL (VOLTAGE) GRIDLINES
         for vLine in ScopeViewMath.voltageGridLines {
-            
+            //line
             vLine.color.setFill()
             NSRectFill(NSRect(x: 0, y: vLine.lineCoord, width: frame.width, height: 1))
-            
-/*            if ( labelCounter < gridLineLabelFrequency ) {
-                labelCounter += 1
-                continue
-            }
-            labelCounter=1*/
-            
+            //label
             if let lineLabel = vLine.label {
                 let stringSize = lineLabel.sizeWithAttributes(gridLineLabelAttributes)
                 lineLabel.drawAtPoint(NSPoint(x:frame.width-stringSize.width, y:vLine.lineCoord), withAttributes: gridLineLabelAttributes)
@@ -137,9 +141,8 @@ class ScopeImageView: NSImageView {
 
     override func drawRect(dirtyRect: NSRect) {
         super.drawRect(dirtyRect)
-        var nsgc:NSGraphicsContext? = nil
+        let nsgc = NSGraphicsContext.currentContext()
         if ( CONFIG_DISPLAY_ENABLE_ANTIALIASING == false ) {
-            nsgc = NSGraphicsContext.currentContext()
             nsgc?.saveGraphicsState()
             nsgc?.shouldAntialias = false
         }
@@ -153,10 +156,10 @@ class ScopeImageView: NSImageView {
         
         // curves
         for ch in 0..<channels.count {
-            drawSamplesBezier(ch)
+            //drawSamplesBezier(ch)
+            drawSamplesPointArray(ch)
+            //drawSamplesMinMax(ch)
         }
-        
-       
         
         if ( CONFIG_DISPLAY_ENABLE_ANTIALIASING == false ) {
             nsgc?.restoreGraphicsState()

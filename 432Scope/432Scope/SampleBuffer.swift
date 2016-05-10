@@ -15,6 +15,7 @@
 
 import Foundation
 
+
 class SampleBuffer {
     
     private var gcdSampleBufferQueue:dispatch_queue_t? = nil
@@ -48,7 +49,7 @@ class SampleBuffer {
         dispatch_resume( gcdSampleBufferQueue! )
         return returnArray
     }
-    
+
     //
     // WRITE FUNCTIONS which should ALL queue their writes.
     //
