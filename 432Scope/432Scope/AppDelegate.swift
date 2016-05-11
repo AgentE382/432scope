@@ -88,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // pass those channels along to the view controllers.
             for i in 0..<devices.count {
                 // try to open some channels ...
-                let newChannel = try Channel(device: devices[i], sampleRateInHertz: CONFIG_SINGLECHANNEL_SAMPLERATE, bufferLengthInSeconds: CONFIG_BUFFER_LENGTH)
+                let newChannel = try Channel(device: devices[i], sampleRateInHertz: CONFIG_SAMPLERATE, bufferLengthInSeconds: CONFIG_BUFFER_LENGTH)
                 
                 channels.append(newChannel)
                 channels[i].displayColor = scopeTraceColors.colorWithKey(channelColorKeys[i%channelColorCount])!

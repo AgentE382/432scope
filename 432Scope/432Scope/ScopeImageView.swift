@@ -29,58 +29,16 @@ class ScopeImageView: NSImageView {
     //
     // PLOTTING SAMPLE VALUES ON SCREEN
     //
-    
-    var sampleVisibleRange:(min:Int, max:Int) = (0,Int(Sample.max))
-    var sampleScaleFactor:CGFloat = 0.001
-    
-    func recalculateSampleTranslationFactor( ch:Int ) {
-        sampleVisibleRange.min = channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.min)
-        sampleVisibleRange.max = channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.max)
-        let sampleSpan = sampleVisibleRange.max - sampleVisibleRange.min
-        sampleScaleFactor = frame.height / CGFloat(sampleSpan)
-    }
-    
-    func translateSampleToGraphicsY( sample:Sample ) -> CGFloat {
-        let sampleHeight = CGFloat(Int(sample)-sampleVisibleRange.min)
-        return sampleHeight * sampleScaleFactor
-    }
 
     //
     // DRAWING FUNCTIONS
     //
-    
-    func drawSamplesBezier( ch:Int ) {
-        // one channel: ~26%
-        
-        // set up this channel's color and translation factor
-        channels[ch].displayColor.setStroke()
-        recalculateSampleTranslationFactor(ch)
-        
-        // get the samples, their spacing, starting X ...
-        let sampleArray = channels[ch].getSampleRange(ScopeViewMath.tvRange)
-        let sampleXSpacing:CGFloat = frame.width / CGFloat(sampleArray.count-1)
-        var xPosition = frame.width
-        
-        // set up the bezier path object ...
-        let bezierPath = NSBezierPath()
-        bezierPath.moveToPoint(NSPoint(x: xPosition, y: translateSampleToGraphicsY(sampleArray[0])))
-        
-        // add the points
-        for sample in sampleArray {
-            bezierPath.lineToPoint(NSPoint(x: xPosition, y: translateSampleToGraphicsY(sample)))
-            xPosition -= sampleXSpacing
-        }
-        
-        // draw.  DO NOT closePath!!
-        bezierPath.stroke()
-    }
     
     func drawSamplesPointArray(ch:Int) {
         // one channel: ~22%, yeah, it's a little faster ...
         
         // set up this channel's color and translation factor
         channels[ch].displayColor.setStroke()
-        recalculateSampleTranslationFactor(ch)
         
         // get the samples, their spacing, starting X ...
         let sampleArray = channels[ch].getSampleRange(ScopeViewMath.tvRange)
@@ -89,12 +47,12 @@ class ScopeImageView: NSImageView {
         
         // set up the bezier path object ...
         let bezierPath = NSBezierPath()
-        bezierPath.moveToPoint(NSPoint(x: xPosition, y: translateSampleToGraphicsY(sampleArray[0])))
+        bezierPath.moveToPoint(NSPoint(x: xPosition, y: sampleArray[0].asCoordinate() ))
         
         // build an array of points ...
         let points = NSPointArray.alloc(sampleArray.count)
         for i in 0..<sampleArray.count {
-            points[i] = NSPoint(x: xPosition, y: translateSampleToGraphicsY(sampleArray[i]))
+            points[i] = NSPoint(x: xPosition, y: sampleArray[i].asCoordinate() )
             xPosition -= sampleXSpacing
         }
         
@@ -112,7 +70,7 @@ class ScopeImageView: NSImageView {
     
     func drawGridLines( ) {
         // GRIDLINES
-        colorGridLine.setFill()
+        CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR.setFill()
         
         // VERTICAL (TIME) GRIDLINES
         for tLine in ScopeViewMath.timeGridLines {
@@ -141,14 +99,9 @@ class ScopeImageView: NSImageView {
 
     override func drawRect(dirtyRect: NSRect) {
         super.drawRect(dirtyRect)
-        let nsgc = NSGraphicsContext.currentContext()
-        if ( CONFIG_DISPLAY_ENABLE_ANTIALIASING == false ) {
-            nsgc?.saveGraphicsState()
-            nsgc?.shouldAntialias = false
-        }
-        
+  
         // Black background
-        colorBackground.setFill()
+        CONFIG_DISPLAY_SCOPEVIEW_BACKGROUND_COLOR.setFill()
         NSRectFill(NSRect(x: 0, y: 0, width: frame.width, height: frame.height))
         
         // grid lines
@@ -156,13 +109,7 @@ class ScopeImageView: NSImageView {
         
         // curves
         for ch in 0..<channels.count {
-            //drawSamplesBezier(ch)
             drawSamplesPointArray(ch)
-            //drawSamplesMinMax(ch)
-        }
-        
-        if ( CONFIG_DISPLAY_ENABLE_ANTIALIASING == false ) {
-            nsgc?.restoreGraphicsState()
         }
     }
 }

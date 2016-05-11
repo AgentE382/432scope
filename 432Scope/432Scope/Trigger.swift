@@ -12,13 +12,13 @@ import Foundation
 class Trigger {
     
     private(set) var triggerEventBuffer = CircularArray<Int>()
-    private(set) var channelToNotify:ChannelDelegate?
+    private(set) var channelToNotify:TriggerDelegate?
     
     init() {
         print( "---trigger.init DON'T DO THIS" )
     }
     
-    init( capacity:Int, channelToNotify:ChannelDelegate ) {
+    init( capacity:Int, channelToNotify:TriggerDelegate ) {
         print( "---trigger.init capacity:\(capacity)" )
         triggerEventBuffer = CircularArray<Int>(capacity: capacity, repeatedValue: 0)
         self.channelToNotify = channelToNotify
@@ -49,7 +49,7 @@ class Trigger {
 class RisingEdgeTrigger: Trigger {
     var level:Int
     
-    init( capacity:Int, channelToNotify:ChannelDelegate, level:Int ) {
+    init( capacity:Int, channelToNotify:TriggerDelegate, level:Int ) {
         print("---risingEdgeTrigger capacity:\(capacity) level:\(level)")
         self.level = level
         super.init(capacity: capacity, channelToNotify: channelToNotify)
@@ -127,7 +127,7 @@ class RisingEdgeTrigger: Trigger {
     }
 }
 
-protocol ChannelDelegate {
+protocol TriggerDelegate {
     func triggerEventDetected( event:TriggerEvent )
 }
 

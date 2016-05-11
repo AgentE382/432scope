@@ -4,7 +4,7 @@
 #include "adc14.h"
 
 
-// 256 so that the indexes will roll over properly.
+// 256 so that the indices will roll over properly.
 // from their point of view, this is circular.
 unsigned char uartTxBuffer[256];
 unsigned char uartTxQueueIndex = 0;

@@ -9,15 +9,7 @@
 import Foundation
 import Cocoa
 
-/*
-
-
- */
-typealias Time = CGFloat
-typealias Frequency = Double
-typealias SampleIndexRange = (newest:Int, oldest:Int)
-
-class Channel : ChannelDelegate {
+class Channel : TriggerDelegate {
     
     //
     // TRIGGERING
@@ -25,7 +17,7 @@ class Channel : ChannelDelegate {
     
     func setTrigger( triggerLevel:Voltage? ) {
         if let level = triggerLevel {
-            sampleBuffer.trigger = RisingEdgeTrigger(capacity: sampleRateInHertz*bufferLengthInSeconds, channelToNotify: self as ChannelDelegate, level:translateVoltageToSample(level) )
+            sampleBuffer.trigger = RisingEdgeTrigger(capacity: CONFIG_SAMPLERATE*CONFIG_BUFFER_LENGTH, channelToNotify: self as TriggerDelegate, level:level.asSample() )
         } else {
             sampleBuffer.trigger = nil
         }
@@ -37,19 +29,19 @@ class Channel : ChannelDelegate {
     
     var periodMin:Voltage {
         get {
-            return translateSampleToVoltage(periodMinSample)
+            return periodMinSample.asVoltage()
         }
     }
     
     var periodMax:Voltage {
         get {
-            return translateSampleToVoltage(periodMaxSample)
+            return periodMaxSample.asVoltage()
         }
     }
     
-    var triggerFrequency:Double {
+    var triggerFrequency:Frequency {
         get {
-            return Double(CONFIG_SINGLECHANNEL_SAMPLERATE)/Double(periodLengthInSamples)
+            return Frequency(CONFIG_SAMPLERATE)/Frequency(periodLengthInSamples)
         }
     }
     
@@ -72,17 +64,13 @@ class Channel : ChannelDelegate {
     
     // might need to know these internally.
     var device:USBDevice? = nil;
-    var sampleRateInHertz:Int = 0 // samples per second
-    private(set) var bufferLengthInSeconds:Int = 0
     
     init( device:USBDevice, sampleRateInHertz:Int, bufferLengthInSeconds:Int ) throws {
         self.device = device
-        self.sampleRateInHertz = sampleRateInHertz
-        self.bufferLengthInSeconds = bufferLengthInSeconds
         
         // create a sample buffer ...
         let bufferCapacity:Int = sampleRateInHertz * bufferLengthInSeconds
-        sampleBuffer = SampleBuffer(capacity: bufferCapacity, clearValue: groundSampleValue)
+        sampleBuffer = SampleBuffer(capacity: bufferCapacity, clearValue: Voltage(0.0).asSample() )
         print("----Channel.init() created \(bufferCapacity)-deep sample buffer")
         
         // and a decoder ...
@@ -97,7 +85,7 @@ class Channel : ChannelDelegate {
     
     func channelOn( ) throws {
         transceiver!.flush()
-        sampleBuffer.clearAllSamples( groundSampleValue)
+        sampleBuffer.clearAllSamples( Voltage(0.0).asSample() )
         try transceiver!.send("Start")
         isChannelOn = true
     }
@@ -135,53 +123,23 @@ class Channel : ChannelDelegate {
     }
     
     func getInstantaneousVoltage( ) -> Voltage {
-        return translateSampleToVoltage(sampleBuffer.getNewestSample())
+        return sampleBuffer.getNewestSample().asVoltage()
     }
     
     func getSampleRange( timeRange:TimeRange ) -> Array<Sample> {
-        let sampleIndices = translateTimeRangeToSampleIndices(timeRange)
+        let sampleIndices = timeRange.asSampleIndexRange()
         return sampleBuffer.getSubArray(sampleIndices)
-    }
-    
-    func translateTimeRangeToSampleIndices( timeRange:TimeRange ) -> SampleIndexRange {
-        let newestIndex = timeRange.newest * Time(sampleRateInHertz)
-        var oldestIndex = timeRange.oldest * Time(sampleRateInHertz)
-        if (oldestIndex < 1 ) {
-            oldestIndex = 1
-        }
-        return SampleIndexRange(newest:Int(floor(newestIndex)),
-                                oldest:Int(floor(oldestIndex))-1)
     }
     
     //
     // INTERNAL HELPERS
     //
     
-    // these are used to translate samples to voltages
-    let voltageScaleOffset:Voltage = CONFIG_AFE_VOLTAGE_RANGE.min
-    let scaleFactorSampleToVoltage:Voltage = (CONFIG_AFE_VOLTAGE_RANGE.max - CONFIG_AFE_VOLTAGE_RANGE.min) / Voltage(CONFIG_SAMPLE_MAX_VALUE)
-    let scaleFactorVoltageToSample:Voltage = Voltage(CONFIG_SAMPLE_MAX_VALUE)/(CONFIG_AFE_VOLTAGE_RANGE.max - CONFIG_AFE_VOLTAGE_RANGE.min)
-    
+ /*
     func translateSampleToVoltage( sample:Sample ) -> Voltage {
         let rval:Voltage = Voltage(sample) * scaleFactorSampleToVoltage
         return rval + voltageScaleOffset
-    }
-    
-    var groundSampleValue:Sample {
-        return Sample(translateVoltageToSample(0.0))
-    }
-    
-    func translateTimeToSampleIndex( time:Time ) -> Int {
-        return Int(nearbyint(time*Time(sampleRateInHertz)))
-    }
-    
-    // this must return Int so that it can provide a value for voltages that are actually
-    // out of range.  it's for the display.
-    func translateVoltageToSample( voltage:Voltage ) -> Int {
-        let rval:Voltage = voltage - voltageScaleOffset
-        // floor this?
-        return Int(rval * scaleFactorVoltageToSample)
-    }
+    }*/
 }
 
 

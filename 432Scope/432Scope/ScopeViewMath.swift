@@ -15,18 +15,23 @@ class ScopeViewMath {
     static private(set) var imageSize:CGSize = CGSize()
     static private(set) var vvRange:VoltageRange = VoltageRange(min:-20, max:20)
     static private(set) var tvRange:TimeRange = TimeRange(newest:0.0, oldest:0.05)
+    static private(set) var svRange:(min:Sample, max:Sample) = (0, CONFIG_SAMPLE_MAX_VALUE)
     static private(set) var voltageGridLines:[GridLine] = []
     static private(set) var timeGridLines:[GridLine] = []
     
     // PRIVATE: the viewable spans, used to detect whether a view has changed size or just position.
-    static private var vvRangeSpan:Voltage = 40
-    static private var tvRangeSpan:Time = 0.05
+    static private(set) var vvRangeSpan:Voltage = 40
+    static private(set) var tvRangeSpan:Time = 0.05
     
     // PRIVATE: scaling factors which must get recalculated whenever the view zooms or changes size.
-    static private var voltageScaleFactor:Voltage = 0
-    static private var timeScaleFactor:CGFloat = 0
-    static private var yDiffToVoltageScaleFactor:Voltage = 0.01
-    static private var xDiffToTimeScaleFactor:Time = 0.01
+    static private(set) var voltageScaleFactor:Voltage = 0
+    static private(set) var inverseVoltageScaleFactor:Voltage = 0
+    static private(set) var timeScaleFactor:CGFloat = 0
+    static private(set) var inverseTimeScaleFactor:CGFloat = 0
+    static private(set) var sampleToCoordinateScaleFactor:CGFloat = 0.001
+    // These scaling factors are constant but I really want all the scale factors kept in one place.
+    static let sampleToVoltageScaleFactor:Voltage = (CONFIG_AFE_VOLTAGE_RANGE.span) / Voltage(CONFIG_SAMPLE_MAX_VALUE)
+    static let voltageToSampleScaleFactor:Voltage = Voltage(CONFIG_SAMPLE_MAX_VALUE)/(CONFIG_AFE_VOLTAGE_RANGE.span)
     
     // PRIVATE: the grid spacing, also subject to recalculation.
     static private var voltageGridSpacing:Voltage = 5
@@ -161,12 +166,18 @@ class ScopeViewMath {
     // COORDINATE SCALING FACTORS
     //
     
-    class private func recalculateScalingFactors( ) {
+    private class func recalculateScalingFactors( ) {
         // precalculate scaling factors for various coordinate conversions
         voltageScaleFactor = Voltage(imageSize.height)/vvRangeSpan
+        inverseVoltageScaleFactor = vvRangeSpan / Voltage(imageSize.height)
         timeScaleFactor = imageSize.width / tvRangeSpan
-        yDiffToVoltageScaleFactor = vvRangeSpan / Voltage(imageSize.height)
-        xDiffToTimeScaleFactor = tvRangeSpan / Time(imageSize.width)
+        inverseTimeScaleFactor = tvRangeSpan / Time(imageSize.width)
+        
+            svRange.min = vvRange.min.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.min)
+            svRange.max = vvRange.max.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.max)
+            let sampleSpan = svRange.max - svRange.min
+            sampleToCoordinateScaleFactor = imageSize.height / CGFloat(sampleSpan)
+        
     }
     
     //
@@ -208,9 +219,9 @@ class ScopeViewMath {
     private class func recalculateVoltageGridSpacing( ) {
         while ( true ) {
             // get a couple of coords at the current spacing.
-            let highTest = Translate.toGraphics(voltageGridSpacing)
-            let lowTest = Translate.toGraphics(Voltage(0.0))
-            let pixelSpacing = highTest - lowTest
+//            let highTest = Translate.toGraphics(voltageGridSpacing)
+  //          let lowTest = Translate.toGraphics(Voltage(0.0))
+            let pixelSpacing = voltageGridSpacing.asGraphicsDiff() //highTest - lowTest
             if ( pixelSpacing < CONFIG_DISPLAY_VOLTAGE_GRID_CONSTANT ) {
                 // too close. raise the spacing.
                 voltageGridSpacing = getBiggerGridSpacing(voltageGridSpacing)
@@ -229,9 +240,9 @@ class ScopeViewMath {
     private class func recalculateTimeGridSpacing( ) {
         while ( true ) {
             // get a couple of coords at the current spacing.
-            let highTest = Translate.toGraphics(Time(0))
-            let lowTest = Translate.toGraphics(timeGridSpacing)
-            let pixelSpacing = highTest - lowTest
+//            let highTest = Translate.toGraphics(Time(0))
+  //          let lowTest = Translate.toGraphics(timeGridSpacing)
+            let pixelSpacing = timeGridSpacing.asGraphicsDiff() //highTest - lowTest
             if ( pixelSpacing < CONFIG_DISPLAY_TIME_GRID_CONSTANT ) {
                 // too close. raise the spacing.
                 timeGridSpacing = Time(getBiggerGridSpacing(Double(timeGridSpacing)))
@@ -256,8 +267,8 @@ class ScopeViewMath {
         var aGridTime:Time = firstGridMultiplier * timeGridSpacing
         var gridCoords:[GridLine] = []
         while ( aGridTime < tvRange.oldest ) {
-            let xPos = Translate.toGraphics(aGridTime)
-            let label = getTimeAsString(aGridTime)
+            let xPos = aGridTime.asCoordinate() //Translate.toGraphics(aGridTime)
+            let label = aGridTime.asString() //getTimeAsString(aGridTime)
             gridCoords.append(GridLine(lineCoord:xPos, label:label))
             aGridTime += timeGridSpacing
         }
@@ -269,20 +280,20 @@ class ScopeViewMath {
         var aGridVoltage:Voltage = voltageGridSpacing
         while ( aGridVoltage < vvRange.max ) {
             if ( aGridVoltage > vvRange.min ) {
-                let yPos = Translate.toGraphics(aGridVoltage)
-                let label = getVoltageAsString(aGridVoltage)
+                let yPos = aGridVoltage.asCoordinate() //Translate.toGraphics(aGridVoltage)
+                let label = aGridVoltage.asString() //getVoltageAsString(aGridVoltage)
                 gridCoords.append(GridLine(lineCoord:yPos, label:label))
             }
             aGridVoltage += voltageGridSpacing
         }
         // reverse the array so far and add ground, so that at the end we'll have them in order as they appear on screen, and we can add labels to every 2nd or third one easily.
         gridCoords = gridCoords.reverse()
-        gridCoords.append(GridLine(lineCoord:Translate.toGraphics(Voltage(0.0)), label:nil, color:colorGroundLine))
+        gridCoords.append(GridLine(lineCoord:Voltage(0.0).asCoordinate(), label:nil, color:CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR))
         aGridVoltage = -voltageGridSpacing
         while ( aGridVoltage > vvRange.min ) {
             if ( aGridVoltage < vvRange.max ) {
-                let yPos = Translate.toGraphics(aGridVoltage)
-                let label = getVoltageAsString(aGridVoltage)
+                let yPos = aGridVoltage.asCoordinate() //Translate.toGraphics(aGridVoltage)
+                let label = aGridVoltage.asString() //getVoltageAsString(aGridVoltage)
                 gridCoords.append(GridLine(lineCoord:yPos, label:label))
             }
             aGridVoltage -= voltageGridSpacing
@@ -292,54 +303,16 @@ class ScopeViewMath {
     }
 }
 
-//
-// TRANSLATE
-// an interface to coordinate system translation math.  It inherits from ScopeViewMath because these translations depend on the scale factors calculated there.
-//
-
-class Translate: ScopeViewMath {
-    
-    class func toGraphics( voltage:Voltage ) -> CGFloat {
-        var yVal = voltage - vvRange.min
-        yVal *= voltageScaleFactor
-        return CGFloat(yVal)
-    }
-    
-    class func toGraphics( time:Time ) -> CGFloat {
-        var xVal = time - tvRange.newest
-        xVal *= timeScaleFactor
-        return CGFloat(imageSize.width - xVal);
-    }
-    
-    class func toVoltage( yCoord:CGFloat ) -> Voltage {
-        let inverseScaling = 1 / voltageScaleFactor
-        return (Voltage(yCoord)*inverseScaling)+vvRange.min
-    }
-    
-    class func toTime( xCoord:CGFloat ) -> Time {
-        let inverseScaling = 1 / timeScaleFactor
-        return (Time(imageSize.width-xCoord)*inverseScaling)+tvRange.newest
-    }
-    
-    class func graphicsDeltaToVoltage( yDiff:CGFloat ) -> Voltage {
-        return yDiffToVoltageScaleFactor * Voltage(yDiff)
-    }
-    
-    class func graphicsDeltaToTime( xDiff:CGFloat ) -> Time {
-        return xDiffToTimeScaleFactor * Time(xDiff)
-    }
-    
-}
 
 struct GridLine {
     
     //
-    // THIS is really just a tuple, but it's a class so I could write constructors with sane initialization values.
+    // THIS is really just a tuple, but it's a struct so I could write constructors with sane init behavior.
     //
     
     var lineCoord:CGFloat = 0
     var label:String? = nil
-    var color:NSColor = colorGridLine
+    var color:NSColor = CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR
     
     init( ) {
         lineCoord = 0
@@ -360,136 +333,6 @@ struct GridLine {
         self.lineCoord = lineCoord
         self.label = label
         self.color = color
-    }
-}
-
-struct VoltageRange {
-    var min:Voltage = 0
-    var max:Voltage = 1
-    
-    var span:Voltage {
-        get {
-            return (self.max - self.min)
-        }
-        set(newSpan) {
-            let newHalfSpan = newSpan/2
-            let oldCenter = self.center
-            self.min = oldCenter - newHalfSpan
-            self.max = oldCenter + newHalfSpan
-        }
-    }
-    
-    var center:Voltage {
-        get {
-            return (self.max + self.min) / 2
-        }
-        set(newCenter) {
-            let oldHalfSpan = self.halfSpan
-            self.min = newCenter - oldHalfSpan
-            self.max = newCenter + oldHalfSpan
-        }
-    }
-    
-    var halfSpan:Voltage {
-        get {
-            return span / 2
-        }
-        set(newHalfSpan) {
-            let oldCenter = self.center
-            self.min = oldCenter - newHalfSpan
-            self.max = oldCenter + newHalfSpan
-        }
-    }
-    
-    init(min:Voltage, max:Voltage) {
-        self.min = min
-        self.max = max
-    }
-    
-    init(center:Voltage, span:Voltage) {
-        let newHalfSpan = span / 2
-        min = center - newHalfSpan
-        max = center + newHalfSpan
-    }
-    
-    init(center:Voltage, halfSpan:Voltage) {
-        min = center - halfSpan
-        max = center + halfSpan
-    }
-    
-    init(min:Voltage, span:Voltage) {
-        self.min = min
-        self.max = min+span
-    }
-    
-    init(max:Voltage, span:Voltage) {
-        self.min = max-span
-        self.max = max
-    }
-}
-
-struct TimeRange {
-    var newest:Time = 0
-    var oldest:Time = 1
-    
-    var span:Time {
-        get {
-            return (self.oldest - self.newest)
-        }
-        set(newSpan) {
-            let newHalfSpan = newSpan/2
-            let oldCenter = self.center
-            self.newest = oldCenter - newHalfSpan
-            self.oldest = oldCenter + newHalfSpan
-        }
-    }
-    
-    var center:Time {
-        get {
-            return (self.oldest + self.newest) / 2
-        }
-        set(newCenter) {
-            let oldHalfSpan = self.halfSpan
-            self.newest = newCenter - oldHalfSpan
-            self.oldest = newCenter + oldHalfSpan
-        }
-    }
-    
-    var halfSpan:Time {
-        get {
-            return span / 2
-        }
-        set(newHalfSpan) {
-            let oldCenter = self.center
-            self.newest = oldCenter - newHalfSpan
-            self.oldest = oldCenter + newHalfSpan
-        }
-    }
-    
-    init(newest:Time, oldest:Time) {
-        self.newest = newest
-        self.oldest = oldest
-    }
-    
-    init(center:Time, span:Time) {
-        let newHalfSpan = span / 2
-        newest = center - newHalfSpan
-        oldest = center + newHalfSpan
-    }
-    
-    init(center:Time, halfSpan:Time) {
-        newest = center - halfSpan
-        oldest = center + halfSpan
-    }
-    
-    init(newest:Time, span:Time) {
-        self.newest = newest
-        self.oldest = newest+span
-    }
-    
-    init(oldest:Time, span:Time) {
-        self.newest = oldest-span
-        self.oldest = oldest
     }
 }
 

@@ -9,7 +9,7 @@
  * This project is for testing code that leads to an oscilloscope.
  *
  * WHAT IT DOES:
- * -10 kHz sample rate.
+ * -100 kHz sample rate.
  * -3 Mbps UART.
  *
  * ADC monitor:
@@ -20,6 +20,8 @@
  * 		so the led's whiteness indicates saturation.
  * 	LED1 comes on if the UART buffer is about to overflow.
  *
+ * -switch it on and off with 's' and 'p' on the console, or pushbuttons.
+ * -periodic_send_test in here was used for testing before ADC code was working.
  *
  * WHAT IT USES:
  *

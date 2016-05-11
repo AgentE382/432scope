@@ -27,22 +27,22 @@ class ScopeViewController: NSViewController {
     @IBOutlet weak var nsbZoomInY: NSButton!
 
     @IBAction func buttonZoomOutX(sender: AnyObject) {
-        let newTVRange = zoomX( Time(CONFIG_DISPLAY_MAGNFICATION_FACTOR) )
+        let newTVRange = zoomX( Time(1.2) )
         ScopeViewMath.update(nil, vvRange: nil, tvRange: newTVRange)
     }
     
     @IBAction func buttonZoomInX(sender: AnyObject) {
-        let newTVRange = zoomX( Time(1/CONFIG_DISPLAY_MAGNFICATION_FACTOR) )
+        let newTVRange = zoomX( Time(1/1.2) )
         ScopeViewMath.update(nil, vvRange: nil, tvRange: newTVRange)
     }
     
     @IBAction func buttonZoomOutY(sender: AnyObject) {
-        let newVVRange = zoomY( Voltage(CONFIG_DISPLAY_MAGNFICATION_FACTOR))
+        let newVVRange = zoomY( Voltage(1.2))
         ScopeViewMath.update(nil, vvRange: newVVRange, tvRange: nil)
     }
     
     @IBAction func buttonZoomInY(sender: AnyObject) {
-        let newVVRange = zoomY( Voltage(1/CONFIG_DISPLAY_MAGNFICATION_FACTOR))
+        let newVVRange = zoomY( Voltage(1/1.2))
         ScopeViewMath.update(nil, vvRange: newVVRange, tvRange: nil)
     }
     
@@ -76,18 +76,18 @@ class ScopeViewController: NSViewController {
         let dY = event.scrollingDeltaY
         let modifierFlags = event.modifierFlags
         if (modifierFlags.contains( .CommandKeyMask )) {
-            // we are zooming zoom
+            // we are zooming
             let xMagnifier = (dX / 100) + 1.0
             let yMagnifier = (dY / 100) + 1.0
             let newTVRange = zoomX(Time(xMagnifier))
             let newVVRange = zoomY(Voltage(yMagnifier))
             ScopeViewMath.update(nil, vvRange: newVVRange, tvRange: newTVRange)
         } else {
-            // we are panning pan
-            let dVoltage = Translate.graphicsDeltaToVoltage(dY)
+            // we are panning
+            let dVoltage = dY.asVoltageDiff() // Translate.graphicsDeltaToVoltage(dY)
             let newVVRange = VoltageRange(min: ScopeViewMath.vvRange.min + dVoltage,
                                           max: ScopeViewMath.vvRange.max + dVoltage)
-            let dTime = Translate.graphicsDeltaToTime(dX)
+            let dTime = dX.asTimeDiff() // Translate.graphicsDeltaToTime(dX)
             let newTVRange = TimeRange(newest: ScopeViewMath.tvRange.newest + dTime,
                                        oldest: ScopeViewMath.tvRange.oldest + dTime)
             // just a pan so only a few updates are needed

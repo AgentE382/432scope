@@ -120,11 +120,11 @@ class ChannelViewController: NSViewController {
             nstfVolts.stringValue = "(-----)"
             break;
         case .Instantaneous:
-            nstfVolts.stringValue = getVoltageAsString(channel!.getInstantaneousVoltage())
+            nstfVolts.stringValue = channel!.getInstantaneousVoltage().asString() ///getVoltageAsString(channel!.getInstantaneousVoltage())
             break;
         case .PeakToPeak:
             let ptp = channel!.periodMax - channel!.periodMin
-            nstfVolts.stringValue = getVoltageAsString(ptp)
+            nstfVolts.stringValue = ptp.asString() //getVoltageAsString(ptp)
             break;
         }
         
@@ -133,7 +133,7 @@ class ChannelViewController: NSViewController {
             labelFrequencyDisplay.stringValue = "(-----)"
             break
         case .Enabled:
-            labelFrequencyDisplay.stringValue = getFrequencyAsString(channel!.triggerFrequency)
+            labelFrequencyDisplay.stringValue = channel!.triggerFrequency.asString() //getFrequencyAsString(channel!.triggerFrequency)
             break
         }
     }
