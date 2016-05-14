@@ -864,10 +864,10 @@
                     </view>
                     <connections>
                         <outlet property="colorWell" destination="AVl-sI-8g5" id="lte-SO-0IH"/>
+                        <outlet property="labelDeviceName" destination="rKj-4L-cRP" id="bRz-hF-WXZ"/>
                         <outlet property="labelFrequencyDisplay" destination="LFZ-LZ-zle" id="L6p-h7-soX"/>
-                        <outlet property="nstfChannelName" destination="rKj-4L-cRP" id="Xnb-Cn-jku"/>
-                        <outlet property="nstfReadingType" destination="JAF-Nq-Uul" id="LYw-lG-K7H"/>
-                        <outlet property="nstfVolts" destination="jAM-gA-dV7" id="CEe-5r-NSr"/>
+                        <outlet property="labelReadingType" destination="JAF-Nq-Uul" id="Wb6-At-wm2"/>
+                        <outlet property="labelVoltmeter" destination="jAM-gA-dV7" id="56N-aJ-bxT"/>
                         <outlet property="popupTriggerType" destination="JEP-Fz-bk5" id="nJh-ON-25w"/>
                         <outlet property="textLevelEntryBox" destination="PCB-c9-O8m" id="BKK-uE-lSF"/>
                     </connections>

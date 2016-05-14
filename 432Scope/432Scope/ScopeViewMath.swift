@@ -64,6 +64,7 @@ class ScopeViewMath {
         var needTGridSpacing:Bool = false
         var needTGridLines:Bool = false
         
+        // we've been sent a new imageSize
         if let newImageSize = imageSize {
             self.imageSize = newImageSize
             needScalingFactors = true
@@ -73,9 +74,11 @@ class ScopeViewMath {
             needTGridLines = true
         }
         
+        // we've been sent new viewable Voltage range
         if let newVoltageRange = vvRange {
-            self.vvRange = clampVoltageDisplayRange(newVoltageRange)
-            let newVVRangeSpan = self.vvRange.max - self.vvRange.min
+            self.vvRange = newVoltageRange
+            self.vvRange.clampToSpanLimitsAndOuterBounds(CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS.min, maximumSpan: CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS.max, outerBounds: CONFIG_DISPLAY_VOLTAGE_LIMITS)
+            let newVVRangeSpan = self.vvRange.span
             // did we zoom or pan?
             if (newVVRangeSpan == self.vvRangeSpan) {
                 // span is the same, so it's just a pan.
@@ -89,9 +92,11 @@ class ScopeViewMath {
             self.vvRangeSpan = newVVRangeSpan
         }
         
+        // we've been sent new viewable Time range.
         if let newTimeRange = tvRange {
-            self.tvRange = clampTimeDisplayRange(newTimeRange)
-            let newTVRangeSpan = self.tvRange.oldest - self.tvRange.newest
+            self.tvRange = newTimeRange
+            self.tvRange.clampToSpanLimitsAndOuterBounds(CONFIG_DISPLAY_TIME_SPAN_LIMITS.min, maximumSpan: CONFIG_DISPLAY_TIME_SPAN_LIMITS.max, outerBounds: CONFIG_DISPLAY_TIME_LIMITS)
+            let newTVRangeSpan = self.tvRange.span
             // did we zoom or pan?
             if (newTVRangeSpan == self.tvRangeSpan) {
                 // span didn't change, so it's just a pan
@@ -123,46 +128,6 @@ class ScopeViewMath {
     }
     
     //
-    // VIEW RANGE BOUNDS CHECKING
-    //
-    
-    class func clampVoltageDisplayRange( range:VoltageRange ) -> VoltageRange {
-        if ( range.span > CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS.max ) {
-            // zoomed out too far
-            return CONFIG_DISPLAY_VOLTAGE_LIMITS
-        }
-        if ( range.span < CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS.min ) {
-            // zoomed in too far
-            return VoltageRange(center: range.center, span: CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS.min)
-        }
-        if ( range.min < CONFIG_DISPLAY_VOLTAGE_LIMITS.min ) {
-            return VoltageRange(min: CONFIG_DISPLAY_VOLTAGE_LIMITS.min, span: range.span)
-        }
-        if ( range.max > CONFIG_DISPLAY_VOLTAGE_LIMITS.max ) {
-            return VoltageRange(max: CONFIG_DISPLAY_VOLTAGE_LIMITS.max, span: range.span)
-        }
-        return range
-    }
-    
-    class func clampTimeDisplayRange( range:TimeRange ) -> TimeRange {
-        if ( range.span > CONFIG_DISPLAY_TIME_SPAN_LIMITS.max ) {
-            // zoomed out too far
-            return CONFIG_DISPLAY_TIME_LIMITS
-        }
-        if ( range.span < CONFIG_DISPLAY_TIME_SPAN_LIMITS.min ) {
-            // zoomed in too far
-            return TimeRange(center: range.center, span: CONFIG_DISPLAY_TIME_SPAN_LIMITS.min)
-        }
-        if ( range.newest < CONFIG_DISPLAY_TIME_LIMITS.newest ) {
-            return TimeRange(newest: CONFIG_DISPLAY_TIME_LIMITS.newest, span: range.span)
-        }
-        if ( range.oldest > CONFIG_DISPLAY_TIME_LIMITS.oldest ) {
-            return TimeRange(oldest: CONFIG_DISPLAY_TIME_LIMITS.oldest, span: range.span)
-        }
-        return range
-    }
-    
-    //
     // COORDINATE SCALING FACTORS
     //
     
@@ -173,10 +138,10 @@ class ScopeViewMath {
         timeScaleFactor = imageSize.width / tvRangeSpan
         inverseTimeScaleFactor = tvRangeSpan / Time(imageSize.width)
         
-            svRange.min = vvRange.min.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.min)
-            svRange.max = vvRange.max.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.max)
-            let sampleSpan = svRange.max - svRange.min
-            sampleToCoordinateScaleFactor = imageSize.height / CGFloat(sampleSpan)
+        svRange.min = vvRange.min.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.min)
+        svRange.max = vvRange.max.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.max)
+        let sampleSpan = svRange.max - svRange.min
+        sampleToCoordinateScaleFactor = imageSize.height / CGFloat(sampleSpan)
         
     }
     
@@ -218,10 +183,7 @@ class ScopeViewMath {
     
     private class func recalculateVoltageGridSpacing( ) {
         while ( true ) {
-            // get a couple of coords at the current spacing.
-//            let highTest = Translate.toGraphics(voltageGridSpacing)
-  //          let lowTest = Translate.toGraphics(Voltage(0.0))
-            let pixelSpacing = voltageGridSpacing.asGraphicsDiff() //highTest - lowTest
+            let pixelSpacing = voltageGridSpacing.asGraphicsDiff()
             if ( pixelSpacing < CONFIG_DISPLAY_VOLTAGE_GRID_CONSTANT ) {
                 // too close. raise the spacing.
                 voltageGridSpacing = getBiggerGridSpacing(voltageGridSpacing)
@@ -239,10 +201,7 @@ class ScopeViewMath {
     
     private class func recalculateTimeGridSpacing( ) {
         while ( true ) {
-            // get a couple of coords at the current spacing.
-//            let highTest = Translate.toGraphics(Time(0))
-  //          let lowTest = Translate.toGraphics(timeGridSpacing)
-            let pixelSpacing = timeGridSpacing.asGraphicsDiff() //highTest - lowTest
+            let pixelSpacing = timeGridSpacing.asGraphicsDiff()
             if ( pixelSpacing < CONFIG_DISPLAY_TIME_GRID_CONSTANT ) {
                 // too close. raise the spacing.
                 timeGridSpacing = Time(getBiggerGridSpacing(Double(timeGridSpacing)))
@@ -267,8 +226,8 @@ class ScopeViewMath {
         var aGridTime:Time = firstGridMultiplier * timeGridSpacing
         var gridCoords:[GridLine] = []
         while ( aGridTime < tvRange.oldest ) {
-            let xPos = aGridTime.asCoordinate() //Translate.toGraphics(aGridTime)
-            let label = aGridTime.asString() //getTimeAsString(aGridTime)
+            let xPos = aGridTime.asCoordinate()
+            let label = aGridTime.asString()
             gridCoords.append(GridLine(lineCoord:xPos, label:label))
             aGridTime += timeGridSpacing
         }
@@ -280,8 +239,8 @@ class ScopeViewMath {
         var aGridVoltage:Voltage = voltageGridSpacing
         while ( aGridVoltage < vvRange.max ) {
             if ( aGridVoltage > vvRange.min ) {
-                let yPos = aGridVoltage.asCoordinate() //Translate.toGraphics(aGridVoltage)
-                let label = aGridVoltage.asString() //getVoltageAsString(aGridVoltage)
+                let yPos = aGridVoltage.asCoordinate()
+                let label = aGridVoltage.asString()
                 gridCoords.append(GridLine(lineCoord:yPos, label:label))
             }
             aGridVoltage += voltageGridSpacing
@@ -292,13 +251,12 @@ class ScopeViewMath {
         aGridVoltage = -voltageGridSpacing
         while ( aGridVoltage > vvRange.min ) {
             if ( aGridVoltage < vvRange.max ) {
-                let yPos = aGridVoltage.asCoordinate() //Translate.toGraphics(aGridVoltage)
-                let label = aGridVoltage.asString() //getVoltageAsString(aGridVoltage)
+                let yPos = aGridVoltage.asCoordinate()
+                let label = aGridVoltage.asString()
                 gridCoords.append(GridLine(lineCoord:yPos, label:label))
             }
             aGridVoltage -= voltageGridSpacing
         }
-        //print( "V spacing: \(voltageGridSpacing)\t\(gridCoords)")
         voltageGridLines = gridCoords
     }
 }

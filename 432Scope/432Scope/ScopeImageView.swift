@@ -10,63 +10,52 @@ import Cocoa
 
 class ScopeImageView: NSImageView {
     
-    //
-    // COCOA SILLINESS
-    //
-
     // this prevents Cocoa from trying to draw things which would be behind this view, which is silly because this view covers them completely
     override var opaque:Bool {
         return true
     }
-    
-    //
-    // THE INFO NEEDED TO DRAW SIGNALS
-    //
-    
-    // the channels we're responsible for drawing
+
     var channels:[Channel] = []
-    
-    //
-    // PLOTTING SAMPLE VALUES ON SCREEN
-    //
 
     //
-    // DRAWING FUNCTIONS
+    // TRACE PLOTTING
     //
     
     func drawSamplesPointArray(ch:Int) {
         // one channel: ~22%, yeah, it's a little faster ...
         
         // set up this channel's color and translation factor
-        channels[ch].displayColor.setStroke()
+        channels[ch].traceColor.setStroke()
         
-        // get the samples, their spacing, starting X ...
-        let sampleArray = channels[ch].getSampleRange(ScopeViewMath.tvRange)
-        let sampleXSpacing:CGFloat = frame.width / CGFloat(sampleArray.count-1)
+        // get the samples, their count, their spacing, starting X ...
+        let samples = channels[ch].sampleBuffer.getSampleRange(ScopeViewMath.tvRange)
+        let sampleXSpacing:CGFloat = frame.width / CGFloat(samples.count)
         var xPosition = frame.width
         
         // set up the bezier path object ...
         let bezierPath = NSBezierPath()
-        bezierPath.moveToPoint(NSPoint(x: xPosition, y: sampleArray[0].asCoordinate() ))
+        bezierPath.moveToPoint(NSPoint(x: xPosition, y: samples[0].asCoordinate() ))
         
-        // build an array of points ...
-        let points = NSPointArray.alloc(sampleArray.count)
-        for i in 0..<sampleArray.count {
-            points[i] = NSPoint(x: xPosition, y: sampleArray[i].asCoordinate() )
+        // build an array of points from the first slice
+        let points = NSPointArray.alloc(samples.count)
+        for i in 0..<samples.count {
+            points[i] = NSPoint(x: xPosition, y: samples[i].asCoordinate() )
             xPosition -= sampleXSpacing
         }
-        
 
-        bezierPath.appendBezierPathWithPoints(points, count: sampleArray.count)
+        bezierPath.appendBezierPathWithPoints(points, count: samples.count)
 
-        points.dealloc(sampleArray.count)
+        points.dealloc(samples.count)
         
         // draw.  DO NOT closePath!!
         bezierPath.stroke()
     }
 
-    let gridLineLabelAttributes:[String:AnyObject] = [ NSForegroundColorAttributeName: NSColor(calibratedWhite:0.6, alpha:1.0),
-                                                       NSFontAttributeName: NSFont(name:"Menlo", size:10.0)! ]
+    //
+    // GRID DRAWING
+    //
+    
+    let gridLineLabelAttributes:[String:AnyObject] = [ NSForegroundColorAttributeName: NSColor(calibratedWhite:0.6, alpha:1.0),NSFontAttributeName: NSFont(name:"Menlo", size:10.0)! ]
     
     func drawGridLines( ) {
         // GRIDLINES
@@ -96,6 +85,10 @@ class ScopeImageView: NSImageView {
             }
         }
     }
+    
+    //
+    // DRAWING MAIN
+    //
 
     override func drawRect(dirtyRect: NSRect) {
         super.drawRect(dirtyRect)
@@ -104,6 +97,8 @@ class ScopeImageView: NSImageView {
         CONFIG_DISPLAY_SCOPEVIEW_BACKGROUND_COLOR.setFill()
         NSRectFill(NSRect(x: 0, y: 0, width: frame.width, height: frame.height))
         
+        // recompute if necessary
+        
         // grid lines
         drawGridLines()
         
@@ -111,5 +106,8 @@ class ScopeImageView: NSImageView {
         for ch in 0..<channels.count {
             drawSamplesPointArray(ch)
         }
+        globalDrawActive = false
     }
 }
+
+var globalDrawActive:Bool = false

@@ -11,8 +11,79 @@ import Foundation
 
 class Trigger {
     
-    private(set) var triggerEventBuffer = CircularArray<Int>()
     private(set) var channelToNotify:TriggerDelegate?
+    
+    //
+    // EVENT TIMEKEEPING ARRAY
+    //
+    
+    private(set) var currentTimestamp:UInt = 0
+    private(set) var eventTimestamps:[UInt] = []
+    private var capacity:Int = 0 // this is really the age of the oldest timestamp we need to preserve.
+    
+    private func recordTimestamp() {
+        eventTimestamps.append(currentTimestamp)
+        print("\nrecorded event timestamp: \(currentTimestamp)")
+        
+        // while we're at it, cull any really old ones.
+        for _ in 0..<eventTimestamps.count {
+            let age = currentTimestamp &- eventTimestamps[0]
+            if (age >= UInt(capacity)) {
+                eventTimestamps.removeAtIndex(0)
+            }
+        }
+    }
+    
+    //
+    // MINMAX
+    //
+    
+    private var periodMin:Sample = Sample.max
+    private var periodMax:Sample = Sample.min
+    
+    private func resetMinMax( ) {
+        periodMin = Sample.max
+        periodMax = Sample.min
+    }
+    
+    private func updateMinMax(newSample:Sample) {
+        if (newSample < periodMin) {
+            periodMin = newSample
+        }
+        if (newSample > periodMax) {
+            periodMax = newSample
+        }
+    }
+    
+    //
+    // WHAT HAPPENS WHEN AN EVENT IS DETECTED
+    //
+    
+    // derived classes should call this when they detect an event to store it in the timekeeping array.
+    private func eventHappened(newSample:Sample) {
+        // minmax
+        updateMinMax(newSample)
+        // record the current timestamp
+        recordTimestamp()
+        // notify the channel
+        channelToNotify!.triggerEventDetected(TriggerEvent(timestamp: currentTimestamp, periodLowestSample: periodMin, periodHighestSample: periodMax))
+        // reset min/max for the next period
+        resetMinMax()
+        // increment the clock
+        currentTimestamp = currentTimestamp &+ 1
+    }
+
+    // derived classes should call this when they have gotten a new sample and determined it was NOT a trigger event.
+    private func eventDidNotHappen(newSample:Sample) {
+        // update the minmax
+        updateMinMax(newSample)
+        // increment the clock
+        currentTimestamp = currentTimestamp &+ 1
+    }
+    
+    //
+    // INIT AND BASE CLASS FUNCTIONS TO OVERRIDE
+    //
     
     init() {
         print( "---trigger.init DON'T DO THIS" )
@@ -20,27 +91,13 @@ class Trigger {
     
     init( capacity:Int, channelToNotify:TriggerDelegate ) {
         print( "---trigger.init capacity:\(capacity)" )
-        triggerEventBuffer = CircularArray<Int>(capacity: capacity, repeatedValue: 0)
         self.channelToNotify = channelToNotify
+        self.capacity = capacity
     }
     
     func processSample( sample:Sample ) {
         // this should be overridden
         print("---trigger.processSample SHOULD NOT BE GETTING CALLED.")
-    }
-    
-    func getNewestEventIndex( minimumIndex:Int ) -> Int? {
-        // return the index of the newest event older than this particular index, or nil if no such thing exists.
-        var index = minimumIndex
-        while ( index < triggerEventBuffer.capacity ) {
-            if ( triggerEventBuffer.getEntry(index) == 1 ) {
-                // found it.
-                return index
-            }
-            index += 1
-        }
-        // got through the entire circle and nothing.
-        return nil
     }
 }
 
@@ -53,7 +110,6 @@ class RisingEdgeTrigger: Trigger {
         print("---risingEdgeTrigger capacity:\(capacity) level:\(level)")
         self.level = level
         super.init(capacity: capacity, channelToNotify: channelToNotify)
-        triggerEvent = TriggerEvent()
     }
     
     //
@@ -66,36 +122,21 @@ class RisingEdgeTrigger: Trigger {
     }
     
     var triggerState:RisingEdgeTriggerState = .ExpectingRise
-    var triggerEvent = TriggerEvent()
-    
-    func trackTriggerEvent( newSample:Sample ) {
-        triggerEvent.periodLengthInSamples += 1
-        if ( newSample > triggerEvent.periodMax ) {
-            triggerEvent.periodMax = newSample
-        }
-        if ( newSample < triggerEvent.periodMin ) {
-            triggerEvent.periodMin = newSample
-        }
-    }
-    func resetTriggerEvent( ) {
-        triggerEvent = TriggerEvent()
-    }
     
     override func processSample(newSample:Sample) {
         var nextState:RisingEdgeTriggerState = .ExpectingRise
         var outcomeOfTest:Int = 0
         
         // we have to cast it because level is an Int.  Level is an int because it may be desirable to set a trigger level outside the channel's range.
-        let sample = Int(newSample)
         
         switch (triggerState) {
             
         case .ExpectingRise: // voltage has been under level and we're waiting for it to go up
-            if ( sample < level ) {
+            if ( newSample < level ) {
                 // it's not up yet.
                 nextState = .ExpectingRise
             }
-            if ( sample >= level ) {
+            if ( newSample >= level ) {
                 // got one!
                 nextState = .ExpectingFall
                 outcomeOfTest = 1
@@ -103,11 +144,11 @@ class RisingEdgeTrigger: Trigger {
             break
             
         case .ExpectingFall:
-            if ( sample < level ) {
+            if ( newSample < level ) {
                 // it fell. reset ...
                 nextState = .ExpectingRise
             }
-            if ( sample >= level ) {
+            if ( newSample >= level ) {
                 // still high
                 nextState = .ExpectingFall
             }
@@ -115,14 +156,13 @@ class RisingEdgeTrigger: Trigger {
         }
         
         // store the result, advance the state
-        triggerEventBuffer.storeNewEntry(outcomeOfTest)
         triggerState = nextState
-        trackTriggerEvent(newSample)
         
         if ( outcomeOfTest == 1 ) {
             // we detected an event. send it off and reset
-            channelToNotify!.triggerEventDetected(triggerEvent)
-            resetTriggerEvent()
+            eventHappened(newSample)
+        } else {
+            eventDidNotHappen(newSample)
         }
     }
 }
@@ -132,13 +172,19 @@ protocol TriggerDelegate {
 }
 
 struct TriggerEvent {
-    var periodLengthInSamples:Int
-    var periodMin:Sample
-    var periodMax:Sample
+    var timestamp:UInt
+    var periodLowestSample:Sample
+    var periodHighestSample:Sample
     
     init() {
-        periodLengthInSamples = 0
-        periodMax = Sample.min
-        periodMin = Sample.max
+        timestamp = 0
+        periodLowestSample = 0
+        periodHighestSample = 0
+    }
+    
+    init( timestamp:UInt, periodLowestSample:Sample, periodHighestSample:Sample ) {
+        self.timestamp = timestamp
+        self.periodLowestSample = periodLowestSample
+        self.periodHighestSample = periodHighestSample
     }
 }

@@ -24,7 +24,6 @@
 		5F3B540E1CDA6C3D008F1D88 /* USBScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3B54061CDA6C3D008F1D88 /* USBScanner.swift */; };
 		5F3B540F1CDA6C3D008F1D88 /* WindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3B54071CDA6C3D008F1D88 /* WindowController.swift */; };
 		5F3CF3321CE02C00004813D8 /* Trigger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3CF3311CE02C00004813D8 /* Trigger.swift */; };
-		5F3CF3341CE02C1D004813D8 /* CircularArray.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3CF3331CE02C1D004813D8 /* CircularArray.swift */; };
 		5F5AC0F91CD8D0720047D0AB /* ScopeImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5AC0F81CD8D0720047D0AB /* ScopeImageView.swift */; };
 		5F78EDA71CE2816B00827338 /* Types.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F78EDA61CE2816B00827338 /* Types.swift */; };
 		5FE99A161CDF97B300469E93 /* ScopeViewMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE99A151CDF97B300469E93 /* ScopeViewMath.swift */; };
@@ -73,7 +72,6 @@
 		5F3B54061CDA6C3D008F1D88 /* USBScanner.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = USBScanner.swift; sourceTree = "<group>"; };
 		5F3B54071CDA6C3D008F1D88 /* WindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WindowController.swift; sourceTree = "<group>"; };
 		5F3CF3311CE02C00004813D8 /* Trigger.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Trigger.swift; sourceTree = "<group>"; };
-		5F3CF3331CE02C1D004813D8 /* CircularArray.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CircularArray.swift; sourceTree = "<group>"; };
 		5F5AC0F81CD8D0720047D0AB /* ScopeImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScopeImageView.swift; sourceTree = "<group>"; };
 		5F78EDA61CE2816B00827338 /* Types.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Types.swift; sourceTree = "<group>"; };
 		5FE99A151CDF97B300469E93 /* ScopeViewMath.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScopeViewMath.swift; sourceTree = "<group>"; };
@@ -129,8 +127,8 @@
 			children = (
 				5F3B54001CDA6C3D008F1D88 /* config.swift */,
 				5F1E40AA1CD7FE49007BAC7C /* AppDelegate.swift */,
-				5F3B54061CDA6C3D008F1D88 /* USBScanner.swift */,
 				5F78EDA61CE2816B00827338 /* Types.swift */,
+				5F3B54061CDA6C3D008F1D88 /* USBScanner.swift */,
 				5F1E40E81CD7FEE0007BAC7C /* UI */,
 				5F1E40D51CD7FE50007BAC7C /* Channel */,
 				5F1E40AE1CD7FE49007BAC7C /* Assets.xcassets */,
@@ -165,7 +163,6 @@
 				5F3B54011CDA6C3D008F1D88 /* Decoder.swift */,
 				5F3CF3311CE02C00004813D8 /* Trigger.swift */,
 				5F3B54041CDA6C3D008F1D88 /* SampleBuffer.swift */,
-				5F3CF3331CE02C1D004813D8 /* CircularArray.swift */,
 				5F3B54051CDA6C3D008F1D88 /* Transceiver.swift */,
 				5F3B54021CDA6C3D008F1D88 /* posix_usb_io.c */,
 				5F3B54031CDA6C3D008F1D88 /* posix_usb_io.h */,
@@ -331,7 +328,6 @@
 				5F1E40EE1CD81C5A007BAC7C /* ScopeViewController.swift in Sources */,
 				5F3B540C1CDA6C3D008F1D88 /* SampleBuffer.swift in Sources */,
 				5F3B540A1CDA6C3D008F1D88 /* Decoder.swift in Sources */,
-				5F3CF3341CE02C1D004813D8 /* CircularArray.swift in Sources */,
 				5F1E40AB1CD7FE49007BAC7C /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

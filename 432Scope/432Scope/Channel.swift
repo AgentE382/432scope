@@ -15,44 +15,78 @@ class Channel : TriggerDelegate {
     // TRIGGERING
     //
     
-    func setTrigger( triggerLevel:Voltage? ) {
-        if let level = triggerLevel {
-            sampleBuffer.trigger = RisingEdgeTrigger(capacity: CONFIG_SAMPLERATE*CONFIG_BUFFER_LENGTH, channelToNotify: self as TriggerDelegate, level:level.asSample() )
-        } else {
-            sampleBuffer.trigger = nil
+    func getTriggeredCenterTime( visibleRangeHalfSpan:Time ) -> Time? {
+        // if there's actually no trigger attached, this isn't gonna work ...
+        guard sampleBuffer.trigger != nil else {
+            return nil
         }
+        
+        // if there's a trigger but no events yet, same deal ...
+        let events = sampleBuffer.trigger!.eventTimestamps
+        let currentTime = sampleBuffer.trigger!.currentTimestamp
+        guard events.count > 0 else {
+            return nil
+        }
+
+        let minimumSampleAge = UInt(visibleRangeHalfSpan.asSampleIndex())
+  //      print ("\nvisibleRangeHalfSpan: \(visibleRangeHalfSpan)\t\tminimumSampleAge: \(minimumSampleAge)")
+        
+
+        for i in 1...events.count {
+            let index = events.count - i
+            let age = currentTime &- events[index]
+            if ( age > minimumSampleAge ) {
+   //             print("---ACCEPTED \(age)")
+                return SampleIndex(age).asTime()
+            } else {
+//                print("---rejected age \(age)")
+            }
+        }
+        
+        return nil
     }
     
-    private var periodMinSample:Sample = 0
-    private var periodMaxSample:Sample = 0
-    private var periodLengthInSamples:Int = 0
-    
-    var periodMin:Voltage {
-        get {
-            return periodMinSample.asVoltage()
-        }
+    // ChannelViewController can call these to set up whatever trigger it wants
+    func installNoTrigger() {
+        sampleBuffer.trigger = nil
+        lastTriggerEvent = nil
     }
     
-    var periodMax:Voltage {
-        get {
-            return periodMaxSample.asVoltage()
-        }
+    func installRisingEdgeTrigger( triggerLevel:Voltage ) {
+        sampleBuffer.trigger = RisingEdgeTrigger(capacity: CONFIG_SAMPLERATE*CONFIG_BUFFER_LENGTH, channelToNotify: self as TriggerDelegate, level:triggerLevel.asSample() )
+        lastTriggerEvent = nil
     }
     
-    var triggerFrequency:Frequency {
-        get {
-            return Frequency(CONFIG_SAMPLERATE)/Frequency(periodLengthInSamples)
-        }
-    }
+    private var lastTriggerEvent:TriggerEvent? = nil
     
     func triggerEventDetected( event:TriggerEvent ) {
-        periodMinSample = event.periodMin
-        periodMaxSample = event.periodMax
-        periodLengthInSamples = event.periodLengthInSamples
+        if let lastEvent = lastTriggerEvent {
+            // there's been a prior event to compare this new one to, so we can compute frequency.
+            let period = event.timestamp - lastEvent.timestamp
+            triggerFrequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
+        }
+        lastTriggerEvent = event
+        print("\(event)")
     }
     
+    // Information the ChannelViewController and others will probably want to know.
+    private(set) var triggerFrequency:Frequency = 0.0
+    
+    var triggerPeriodVoltageRange:VoltageRange {
+        get {
+            guard lastTriggerEvent != nil else {
+                return VoltageRange(min:0, max:0)
+            }
+            return VoltageRange(min: lastTriggerEvent!.periodLowestSample.asVoltage(), max: lastTriggerEvent!.periodHighestSample.asVoltage())
+        }
+    }
+    
+    //
+    // FUNDAMENTALS
+    //
+    
     // display parameters
-    var displayColor = NSColor(calibratedRed: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)
+    var traceColor = TraceColorGenerator.getColor()
     
     // the signal chain
     var transceiver:Transceiver? = nil
@@ -91,16 +125,17 @@ class Channel : TriggerDelegate {
     }
     
     func channelOff( ) throws {
+        isChannelOn = false
         try transceiver!.send("Stop")
         transceiver!.flush()
-        isChannelOn = false
     }
     
     deinit {
         print( "----Channel.deinit" )
         if (transceiver != nil ) {
             do { try transceiver!.closeTerminal()
-            } catch {
+            } catch let msg {
+                print(msg)
                 print("Channel deinit: closeTerminal failed.")
             }
         }
@@ -110,37 +145,46 @@ class Channel : TriggerDelegate {
     // FRONTEND
     //
     
- /*   func getTimeRangeMinMax( timeRange:TimeRange ) -> (min:Sample, max:Sample) {
-        let indexRange = translateTimeRangeToSampleIndices(timeRange)
-        return sampleBuffer.getLocalMinMax(indexRange)
-    }*/
-    
-    func getName( ) -> String {
+    var name:String {
         if ( device == nil ) {
             return "i am a channel without a device."
         }
         return device!.deviceFile
     }
-    
-    func getInstantaneousVoltage( ) -> Voltage {
-        return sampleBuffer.getNewestSample().asVoltage()
-    }
-    
-    func getSampleRange( timeRange:TimeRange ) -> Array<Sample> {
-        let sampleIndices = timeRange.asSampleIndexRange()
-        return sampleBuffer.getSubArray(sampleIndices)
-    }
-    
-    //
-    // INTERNAL HELPERS
-    //
-    
- /*
-    func translateSampleToVoltage( sample:Sample ) -> Voltage {
-        let rval:Voltage = Voltage(sample) * scaleFactorSampleToVoltage
-        return rval + voltageScaleOffset
-    }*/
 }
 
+//
+// This thing just wraps up the trace color assignments.
+//
 
+class TraceColorGenerator {
+    private static var counter:Int = 0
+    private static var scopeTraceColors:NSColorList? = nil
+    private static var channelColorKeys:[String] = []
+    
+    class func getColor( ) -> NSColor {
+        // we need to generate the color list first time this is called.
+        if (scopeTraceColors == nil) {
+            createColorList()
+        }
+        
+        let index = counter % channelColorKeys.count
+        let color = scopeTraceColors!.colorWithKey(channelColorKeys[index])
+        counter += 1
+        return color!
+    }
+    
+    private class func createColorList( ) {
+        // create a list of colors to use as default channel trace colors, removing black and white
+        let appleColorList = NSColorList(named: "Apple")
+        scopeTraceColors = NSColorList(name: "Scope Trace Colors" )
+        for color in appleColorList!.allKeys {
+            if ( color == "Black" || color == "White" ) {
+                continue
+            }
+            scopeTraceColors!.insertColor((appleColorList?.colorWithKey(color))!, key: color, atIndex: 0)
+        }
+        channelColorKeys = scopeTraceColors!.allKeys
+    }
+}
 

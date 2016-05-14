@@ -25,7 +25,7 @@ typealias Sample = Int
 typealias Voltage = Double
 typealias SampleIndex = Int
 typealias Time = CGFloat
-typealias Frequency = Float // this HAS to be different from Double because swift won't let me extend two typealiases separately.  This is really annoying.
+typealias Frequency = Float // this HAS to be different from Double because swift won't let me extend two typealiases separately.  This is really annoying.  The next thing to try is the FloatLiteralConvertible trick.
 
 typealias VoltageRange = FloatingRangeType<Voltage>
 typealias TimeRange = FloatingRangeType<Time>
@@ -109,7 +109,7 @@ extension Time: RangeableType, IsTime {
     }
     
     func asSampleIndex( ) -> SampleIndex {
-        return SampleIndex(nearbyint(self*Time(CONFIG_SAMPLERATE)))
+        return SampleIndex(floor(self*Time(CONFIG_SAMPLERATE)))
     }
     
     func asGraphicsDiff( ) -> CGFloat {
@@ -220,8 +220,54 @@ struct FloatingRangeType<T:RangeableType> {
         self.max = max
     }
     
-    // TODO: figure out how to put these in an extension JUST FOR TimeRange
-
+    //
+    // IN-PLACE modifying functions
+    //
+    
+    // this is the viewable-range-check all in one shot.
+    mutating func clampToSpanLimitsAndOuterBounds( minimumSpan:T, maximumSpan:T, outerBounds:FloatingRangeType<T> ) {
+        self.clampToMinimumSpan(minimumSpan)
+        self.clampToMaximumSpan(maximumSpan)
+        self.clampToOuterBounds(outerBounds)
+    }
+    
+    // this function checks/adjusts self.span to be >= the limit passed in as arg.
+    mutating func clampToMinimumSpan( minimumSpan:T ) {
+        if ( span < minimumSpan ) {
+            span = minimumSpan
+        }
+    }
+    
+    mutating func clampToMaximumSpan( maximumSpan:T ) {
+        if ( span > maximumSpan ) {
+            span = maximumSpan
+        }
+    }
+    
+    // this function tests self against outer bounds passed in, and if self reaches outside of them, will translate self back in while preserving span.
+    mutating func clampToOuterBounds( outerBounds:FloatingRangeType<T> ) {
+        // if we are wider than the limits passed in, we should just be the limits.
+        if (self.span > outerBounds.span ) {
+            self = outerBounds
+            return
+        }
+        // if we got here, we're narrower than the limits, so we just need to check the outer edges.
+        let ourSpan = self.span
+        if ( self.min < outerBounds.min ) {
+            // we're low. fix it.
+            self = FloatingRangeType<T>(min: outerBounds.min, span: ourSpan)
+            return
+        }
+        if ( self.max > outerBounds.max ) {
+            self = FloatingRangeType<T>(max: outerBounds.max, span: ourSpan)
+            return
+        }
+    }
+    
+    mutating func addOffsetToRange( offset:T ) {
+        self.min = self.min + offset
+        self.max = self.max + offset
+    }
 }
 
 // This is an extension for TimeRanges.  we have to define a protocol with the ->samplerange translator so that we can constrain the extension to this type ... swift ...

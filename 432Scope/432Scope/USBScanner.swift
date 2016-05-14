@@ -9,70 +9,80 @@
 import Foundation
 //import IOKit
 
-enum USBScannerError: ErrorType {
-    case ScanFailed( msg:String )
-}
-
 typealias USBDevice = (name:String, deviceFile:String)
 
 class USBScanner {
     
+    // MSP432P401R Launchpad vendor and product IDs
+    let idVendor = 0x451
+    let idProduct = 0xBEF3
+    
     // better scan!  multi channel!
-    func betterScan( ) throws -> [USBDevice] {
+    func initialDeviceScan( ) throws -> [USBDevice] {
         
-        // MSP432P401R Launchpad vendor and product IDs
-        let idVendor = 0x451
-        let idProduct = 0xBEF3
+        // pretty much anything breaking in the initial device scan is classified AppFatal
+        var returnVal:kern_return_t = kIOReturnSuccess
         
         let dictionary:NSMutableDictionary = IOServiceMatching( "IOUSBHostInterface" )
         dictionary.setValue(idVendor, forKey: "idVendor")
         dictionary.setValue(idProduct, forKey: "idProduct" )
         dictionary.setValue(1, forKey:"bConfigurationValue" )
         dictionary.setValue(1, forKey:"bInterfaceNumber")
-        print ("dictionary: \(dictionary)")
+//        print ("dictionary: \(dictionary)")
         
+        // get an iterator to matches on the dictionary.  This should giv
         var iterator:io_iterator_t = 0
-        IOServiceGetMatchingServices( kIOMasterPortDefault, dictionary, &iterator )
-        print("iterator: \(iterator)")
+        returnVal = IOServiceGetMatchingServices( kIOMasterPortDefault, dictionary, &iterator )
+        guard returnVal == kIOReturnSuccess else {
+            throw Error.AppFatal("USBScanner: IOServiceGetMatchingServices() error")
+        }
         
         var deviceArray:[USBDevice] = []
-        
+        // go through the really ugly IORegistry tree
         while ( true ) {
             let usbObject = IOIteratorNext( iterator )
-            if ( usbObject == 0 ) {
+            if (usbObject == 0) {
+                // we're at the end of the dictionary matches.
                 break
             }
             
+            // get this interface's product name.  it's a part of the USBDevice type.  maybe we'll care about that someday.
             let productName = (IORegistryEntryCreateCFProperty(usbObject, "Product Name", kCFAllocatorDefault, 0)).takeUnretainedValue() as! String
-            print("object=\(usbObject)\t\t\(productName)")
 
+            // get an iterator to this interface's subdevices
             var subIterator:io_iterator_t = 0
+            returnVal = IORegistryEntryCreateIterator( usbObject, kIOServicePlane, UInt32(kIORegistryIterateRecursively), &subIterator)
+            guard returnVal == kIOReturnSuccess else {
+                throw Error.AppFatal("USBScanner.initalDeviceScan: found a device but couldn't get iterator to subdevice. (IORegistryEntryCreateIterator returned error)")
+            }
             
-            IORegistryEntryCreateIterator( usbObject, kIOServicePlane, UInt32(kIORegistryIterateRecursively), &subIterator)
-            
+            // go through this interface's subdevices, looking for the IOSerialBSDClient (modem device), and adding them to deviceArray.
             while (true ) {
                 let subObject = IOIteratorNext(subIterator)
-                if ( subObject == 0 ) {
+                if (subObject == 0) {
                     break;
                 }
                 let nameUnsafe = UnsafeMutablePointer<io_name_t>.alloc(1)
-                IORegistryEntryGetName(subObject, UnsafeMutablePointer(nameUnsafe))
+                returnVal = IORegistryEntryGetName(subObject, UnsafeMutablePointer(nameUnsafe))
+                guard returnVal == kIOReturnSuccess else {
+                    throw Error.AppFatal("USBScanner.initialDeviceScan: IORegistryEntryGetName returned an error")
+                }
                 let nameString = String.fromCString(UnsafePointer(nameUnsafe))
                 nameUnsafe.dealloc(1)
-                print("---\(nameString!)")
+//                print("---\(nameString!)")
                 if ( nameString == "IOSerialBSDClient" ) {
                     let calloutDevice = (IORegistryEntryCreateCFProperty( subObject, kIOCalloutDeviceKey, kCFAllocatorDefault, 0).takeUnretainedValue()) as! String
-                    print ("------\(calloutDevice)")
+//                    print ("------\(calloutDevice)")
                     deviceArray.append( (name: productName, deviceFile: calloutDevice) )
                 }
             }
         }
-        
-        print( deviceArray )
-        
         return deviceArray
     }
     
     init() {
     }
 }
+
+
+

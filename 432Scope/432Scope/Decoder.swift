@@ -14,31 +14,36 @@ import Foundation
  where we convert it from whatever weird compressed format into sample values.
 */
 
+protocol DecoderDelegate {
+    
+}
+
 class Decoder {
 
-    // wiring
+    var gcdDecoderQueue:dispatch_queue_t? = nil
     var sampleBuffer:SampleBuffer? = nil
     
     private(set) var packetSize:Int? = nil;
-    private var gcdDecoderQueue:dispatch_queue_t? = nil
 
     init( packetSizeInBytes ps:Int, sampleBuffer sb:SampleBuffer ) {
         self.packetSize = ps
         self.sampleBuffer = sb
-        gcdDecoderQueue = dispatch_queue_create("decoderQueue", DISPATCH_QUEUE_SERIAL)
+        
+        gcdDecoderQueue = dispatch_queue_create( "sampleBufferWriteQueue", DISPATCH_QUEUE_SERIAL )
     }
     
     func newPacketArrived( packet:NSData ) {
-        dispatch_async( gcdDecoderQueue!, {
+  //      dispatch_async( gcdDecoderQueue!, {
             
             //
             // PACKET DECOMPRESSION CODE STARTS HERE!
             //
-            
-            // for now it's just raw 16 bit samples.
-            
-//            print( "new packet arrived: \(packet.length) bytes" )
         
+        if ( globalDrawActive ) {
+            print("STORING NEW SAMPLES MID_DRAW")
+        }
+        
+            // for now it's just raw 16 bit samples.
             var aNewSample:Sample = 0
             var i:Int = 0
             while ( i < packet.length ) {
@@ -50,7 +55,9 @@ class Decoder {
             //
             // THAT'S ALL, FOLKS
             //
-        })
+            
+  //      })
+
     }
 
 }

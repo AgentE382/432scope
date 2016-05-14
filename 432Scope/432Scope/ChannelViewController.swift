@@ -19,72 +19,87 @@ class ChannelViewController: NSViewController {
         case Instantaneous
         case PeakToPeak
     }
-    
-    @IBOutlet weak var nstfChannelName: NSTextField!
-    @IBOutlet weak var nstfVolts: NSTextField!
-    @IBOutlet weak var colorWell: NSColorWell!
-    @IBOutlet weak var nstfReadingType: NSTextField!
     var voltmeterDisplayState:VoltmeterDisplayState = .Disabled
     
+    @IBOutlet weak var labelDeviceName: NSTextField!
+    @IBOutlet weak var labelVoltmeter: NSTextField!
+    @IBOutlet weak var labelReadingType: NSTextField!
+    @IBOutlet weak var colorWell: NSColorWell!
+
     @IBAction func colorWellAction(sender: NSColorWell) {
         if let ch = channel {
-            ch.displayColor = sender.color
+            ch.traceColor = sender.color
         }
     }
     
     func disableHeaderSection( ) {
-        nstfVolts.stringValue = "-----"
-        colorWell.enabled = false
-        nstfReadingType.stringValue = "-----"
         voltmeterDisplayState = .Disabled
+        labelVoltmeter.stringValue = "-----"
+        colorWell.enabled = false
+        labelReadingType.stringValue = "-----"
     }
     
     func enableHeaderSection( ) {
         colorWell.enabled = true
         if let ch = channel {
-            colorWell.color = ch.displayColor
+            colorWell.color = ch.traceColor
         }
         voltmeterDisplayState = .Instantaneous
-        nstfReadingType.stringValue = "(Instant)"
+        labelReadingType.stringValue = "(Instant)"
+    }
+    
+    func updateHeaderSection( ) {
+        switch (voltmeterDisplayState) {
+        case .Instantaneous:
+            labelVoltmeter.stringValue = channel!.sampleBuffer.getNewestSample().asVoltage().asString()
+            break
+        case .PeakToPeak:
+            let ptp = channel!.triggerPeriodVoltageRange.span
+            labelVoltmeter.stringValue = ptp.asString()
+            break
+        default:
+            break
+        }
     }
     
     //
     // TRIGGER SECTION
     //
     
-    @IBOutlet weak var popupTriggerType: NSPopUpButton!
-    @IBOutlet weak var textLevelEntryBox: NSTextField!
-    @IBOutlet weak var labelFrequencyDisplay: NSTextField!
-    
     enum FrequencyDisplayState {
         case Disabled
         case Enabled
     }
-    
     var frequencyDisplayState:FrequencyDisplayState = .Disabled
-
+    
+    @IBOutlet weak var popupTriggerType: NSPopUpButton!
+    @IBOutlet weak var textLevelEntryBox: NSTextField!
+    @IBOutlet weak var labelFrequencyDisplay: NSTextField!
+    
     @IBAction func triggerTypeSelected(sender: NSPopUpButton) {
-        print("triggerTypeSelected")
         if let selection = sender.titleOfSelectedItem {
             switch ( selection ) {
+                
                 case "None":
-                    channel!.setTrigger( nil )
+                    channel!.installNoTrigger()
                     textLevelEntryBox.enabled = false
                     frequencyDisplayState = .Disabled
                     voltmeterDisplayState = .Instantaneous
-                    nstfReadingType.stringValue = "(Instant)"
+                    labelFrequencyDisplay.stringValue = "-----"
+                    labelReadingType.stringValue = "(Instant)"
                     break;
+                
                 case "Rising Edge":
                     textLevelEntryBox.enabled = true
                     let level = (textLevelEntryBox.objectValue as! Double)
-                    channel!.setTrigger(Voltage(level))
+                    channel!.installRisingEdgeTrigger(Voltage(level))
                     frequencyDisplayState = .Enabled
                     voltmeterDisplayState = .PeakToPeak
-                    nstfReadingType.stringValue = "(Peak-to-Peak)"
+                    labelReadingType.stringValue = "(Peak-to-Peak)"
                     break;
+                
             default:
                 break;
-
             }
         }
     }
@@ -92,10 +107,9 @@ class ChannelViewController: NSViewController {
     @IBAction func triggerLevelChanged(sender: NSTextField) {
         if let ch = channel {
             let level = textLevelEntryBox.objectValue as! Double
-            ch.setTrigger(Voltage(level))
+            ch.installRisingEdgeTrigger(Voltage(level))
         }
     }
-
     
     func enableTriggerSection( ) {
         popupTriggerType.enabled = true
@@ -106,89 +120,89 @@ class ChannelViewController: NSViewController {
         popupTriggerType.selectItemWithTitle("None")
         textLevelEntryBox.objectValue = Double(0.0)
         textLevelEntryBox.enabled = false
-        labelFrequencyDisplay.stringValue = "(Instant)"
+        labelFrequencyDisplay.stringValue = "-----"
         frequencyDisplayState = .Disabled
     }
-    
-    //
-    // DISPLAY FUNCTION
-    //
-    
-    func updateDisplay( ) {
-        switch (voltmeterDisplayState) {
-        case .Disabled:
-            nstfVolts.stringValue = "(-----)"
-            break;
-        case .Instantaneous:
-            nstfVolts.stringValue = channel!.getInstantaneousVoltage().asString() ///getVoltageAsString(channel!.getInstantaneousVoltage())
-            break;
-        case .PeakToPeak:
-            let ptp = channel!.periodMax - channel!.periodMin
-            nstfVolts.stringValue = ptp.asString() //getVoltageAsString(ptp)
-            break;
-        }
-        
+
+    func updateTriggerSection( ) {
         switch (frequencyDisplayState) {
-        case .Disabled:
-            labelFrequencyDisplay.stringValue = "(-----)"
-            break
         case .Enabled:
-            labelFrequencyDisplay.stringValue = channel!.triggerFrequency.asString() //getFrequencyAsString(channel!.triggerFrequency)
+            labelFrequencyDisplay.stringValue = channel!.triggerFrequency.asString()
+            break
+        default:
             break
         }
     }
     
     //
-    // CHANNEL SETUP AND CONTROLLER INIT
+    // CHANNEL SETUP
     //
     
-    var uiTimer:NSTimer? = nil
     var channel:Channel? = nil
     
-    func loadChannel( newChannel:Channel ) {
+    func loadChannel( newChannel:Channel ) throws {
         // if there's already a channel on this view, get rid of it
         if ( channel != nil ) {
-            unloadCurrentChannel()
+            try unloadCurrentChannel()
         }
+        
         // load in the new one ...
         channel = newChannel
         
         // update channel name.
-        nstfChannelName.stringValue = channel!.getName()
-        
-        // start UI timer!
-        uiTimer = NSTimer.scheduledTimerWithTimeInterval(12/CONFIG_DISPLAY_REFRESH_RATE, target: self, selector: #selector(updateDisplay), userInfo: nil, repeats: true)
-        uiTimer!.tolerance = 0.005
-        print( "ChannelViewController loaded \(channel!.getName())." )
+        labelDeviceName.stringValue = channel!.name
         
         // switch it on!
-        do { try channel!.channelOn() }
-        catch { print("Channel loaded but wouldn't switch on.") }
+        try channel!.channelOn()
         
-        enableHeaderSection()
-        enableTriggerSection()
-
+        // start the UI
+        enableUI()
     }
     
-    func unloadCurrentChannel( ) {
-        print( "----ChannelViewController.unloadCurrentChannel" )
+    func unloadCurrentChannel( ) throws {
         if ( channel == nil ) {
             // actually we don't have to do anything, there's no channel loaded
             return
         }
+        
+        disableUI()
+        
         // if the channel is on, stop it first.
         if ( channel!.isChannelOn == true ) {
-            do { try channel!.channelOff() }
-            catch { print( "Unloading the previous channel failed.  Great." ) }
+            try channel!.channelOff()
         }
-        // stop the UI timer
-        uiTimer!.invalidate()
-        uiTimer = nil
-        
-        disableControls()
+
     }
     
-    func disableControls( ) {
+    //
+    // MASTER - stuff that applies to the entire view
+    //
+    
+    var uiTimer:NSTimer = NSTimer()
+    
+    func updateDisplay( ) {
+        updateHeaderSection()
+        updateTriggerSection()
+    }
+
+    func startFrameTimer( ) {
+        // 5 FPS for now
+        uiTimer = NSTimer.scheduledTimerWithTimeInterval(0.2, target: self, selector: #selector(updateDisplay), userInfo: nil, repeats: true)
+        uiTimer.tolerance = 0.08
+    }
+    
+    func stopFrameTimer( ) {
+        uiTimer.invalidate()
+    }
+    
+    func enableUI( ) {
+        enableHeaderSection()
+        enableTriggerSection()
+        startFrameTimer()
+    }
+    
+    func disableUI( ) {
+        stopFrameTimer()
         disableHeaderSection()
         disableTriggerSection()
     }
@@ -199,7 +213,7 @@ class ChannelViewController: NSViewController {
         // Do view setup here.
         
         // we've loaded, but there's no channel attached yet, so disable controls
-        disableControls()
+        disableUI()
     }
     
 }
