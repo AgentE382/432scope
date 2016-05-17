@@ -162,22 +162,22 @@ class Transceiver: NSObject, NSStreamDelegate {
             
             // 3) The Packetizer!
             var shippedSize:Int = 0
-            let packetSize = self.decoder!.packetSize
+            let packetSize = CONFIG_DECODER_PACKET_SIZE
             while (true) {
                 if ( self.buffer!.length < packetSize ) {
                     // we don't yet have a complete packet.
                     break;
                 }
                 // we have (at least) a complete packet, so ship that off to the decoder.
-                let packetRange = NSRange(location: 0, length: packetSize!)
+                let packetRange = NSRange(location: 0, length: packetSize)
                 let nsdPacket = self.buffer!.subdataWithRange( packetRange )
                 self.decoder!.newPacketArrived( nsdPacket )
                 // add that to the shippedSize count.
-                shippedSize += packetSize!
+                shippedSize += packetSize
                 
                 // get the remaining range, make that the new buffer.
                 let originalBufferLength = self.buffer!.length
-                let newBuffer = self.buffer!.subdataWithRange( NSRange(location: packetSize!, length: originalBufferLength-packetSize!))
+                let newBuffer = self.buffer!.subdataWithRange( NSRange(location: packetSize, length: originalBufferLength-packetSize))
                 self.buffer = NSMutableData(data:newBuffer)
             }
             

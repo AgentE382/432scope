@@ -69,7 +69,7 @@ let CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME:Double = Double(CONFIG_INCOMING_BYTE
 // The decoder packet size also in bytes.
 let CONFIG_DECODER_PACKET_SIZE:Int = roundDoubleUpToNearestIncomingSampleBoundary(CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME)
 
-// The POSIX read length in bytes
+// The POSIX termios.vmin minimum read length in bytes.  At high sample rates, most reads will be much bigger than this anyway.
 let CONFIG_POSIX_READ_LENGTH:UInt8 = UInt8(clampToRange(CONFIG_DECODER_PACKET_SIZE, min: 2, max: 254))
 
 

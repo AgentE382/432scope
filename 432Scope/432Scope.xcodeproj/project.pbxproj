@@ -160,9 +160,9 @@
 			isa = PBXGroup;
 			children = (
 				5F3B53FF1CDA6C3D008F1D88 /* Channel.swift */,
-				5F3B54011CDA6C3D008F1D88 /* Decoder.swift */,
 				5F3CF3311CE02C00004813D8 /* Trigger.swift */,
 				5F3B54041CDA6C3D008F1D88 /* SampleBuffer.swift */,
+				5F3B54011CDA6C3D008F1D88 /* Decoder.swift */,
 				5F3B54051CDA6C3D008F1D88 /* Transceiver.swift */,
 				5F3B54021CDA6C3D008F1D88 /* posix_usb_io.c */,
 				5F3B54031CDA6C3D008F1D88 /* posix_usb_io.h */,

@@ -13,8 +13,8 @@ enum DrawingModeState {
     case Triggered
 }
 
-class ScopeViewController: NSViewController {
-    @IBOutlet weak var scopeImage: ScopeImageView!
+class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageViewNotifications {
+    
     
     //
     // ZOOM BUTTONS
@@ -121,37 +121,57 @@ class ScopeViewController: NSViewController {
     var channels:[Channel] = []
     
     func loadChannel( newChannel:Channel ) {
-        stopDisplayTimer()
-        
         // update the channels
+        newChannel.notifications = self
         channels += [newChannel]
         scopeImage.channels = self.channels
-        
-        startDisplayTimer()
+    }
+    
+    // this is the notification from channel that it has completed a new packet.
+    func channelHasNewData() {
+        // look through all the channels, and if they're all drawable, trigger a frame
+        for ch in channels {
+            if (!ch.isDrawable) {
+                return
+            }
+        }
+        // we got here, so everything's drawable. draw, then reset.
+        drawFrame()
+        for ch in channels {
+            ch.isDrawable = false
+        }
     }
     
     //
-    // BASICS: INIT, FRAME RATE TIMER
+    // DRAWING / ScopeImageViewNotifications
     //
     
-    var scopeViewRefreshPeriod:NSTimeInterval = 1/CONFIG_DISPLAY_REFRESH_RATE
-    var drawTimer:NSTimer = NSTimer()
-
+    func drawingWillBegin() {
+        // freeze the channels, recalc view math if necessary depending on state
+        for ch in channels {
+            ch.sampleBuffer.suspendWrites()
+        }
+    }
+    
     func drawFrame( ) {
-        globalDrawActive = true
         scopeImage.needsDisplay = true
     }
-
-    func startDisplayTimer() {
-        drawTimer = NSTimer.scheduledTimerWithTimeInterval(scopeViewRefreshPeriod, target: self, selector: #selector(drawFrame), userInfo: nil, repeats: true)
-    }
-
-    func stopDisplayTimer() {
-        drawTimer.invalidate()
+    
+    func drawingHasFinished() {
+        // unfreeze the channels
+        for ch in channels {
+            ch.sampleBuffer.resumeWrites()
+        }
     }
     
+    //
+    // INIT, BASICS
+    //
+    
+    @IBOutlet weak var scopeImage: ScopeImageView!
+    
+    // this is the callback for window resize notifications.
     func viewFrameChanged(notification:NSNotification) {
-        // window resizes trigger this.  so update the scope view math.
         ScopeViewMath.update(scopeImage.frame.size, vvRange: nil, tvRange: nil)
     }
     
@@ -159,7 +179,7 @@ class ScopeViewController: NSViewController {
         super.viewDidLoad()
         print("----ScopeViewController.viewDidLoad")
     
-        // let us know when the window gets resized.
+        // subscribe to window resize notifications
         NSNotificationCenter.defaultCenter().addObserverForName(NSViewFrameDidChangeNotification, object: nil, queue: nil, usingBlock: {n in
             self.viewFrameChanged(n)
         })
@@ -168,8 +188,8 @@ class ScopeViewController: NSViewController {
         ScopeViewMath.initializeViewMath()
         ScopeViewMath.update(scopeImage.frame.size, vvRange: nil, tvRange: nil)
         
-        // frame timer
-        startDisplayTimer()
+        // subscribe to the ScopeImageViewNotifications ...
+        scopeImage!.notifications = self
     }
     
     deinit {

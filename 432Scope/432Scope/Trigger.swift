@@ -9,9 +9,13 @@
 import Foundation
 
 
+protocol TriggerNotifications {
+    func triggerEventDetected( event:TriggerEvent )
+}
+
 class Trigger {
     
-    private(set) var channelToNotify:TriggerDelegate?
+    var notifications:TriggerNotifications?
     
     //
     // EVENT TIMEKEEPING ARRAY
@@ -23,7 +27,6 @@ class Trigger {
     
     private func recordTimestamp() {
         eventTimestamps.append(currentTimestamp)
-        print("\nrecorded event timestamp: \(currentTimestamp)")
         
         // while we're at it, cull any really old ones.
         for _ in 0..<eventTimestamps.count {
@@ -35,7 +38,7 @@ class Trigger {
     }
     
     //
-    // MINMAX
+    // MINMAX TRACKING
     //
     
     private var periodMin:Sample = Sample.max
@@ -61,15 +64,10 @@ class Trigger {
     
     // derived classes should call this when they detect an event to store it in the timekeeping array.
     private func eventHappened(newSample:Sample) {
-        // minmax
         updateMinMax(newSample)
-        // record the current timestamp
         recordTimestamp()
-        // notify the channel
-        channelToNotify!.triggerEventDetected(TriggerEvent(timestamp: currentTimestamp, periodLowestSample: periodMin, periodHighestSample: periodMax))
-        // reset min/max for the next period
+        notifications!.triggerEventDetected(TriggerEvent(timestamp: currentTimestamp, periodLowestSample: periodMin, periodHighestSample: periodMax))
         resetMinMax()
-        // increment the clock
         currentTimestamp = currentTimestamp &+ 1
     }
 
@@ -89,9 +87,8 @@ class Trigger {
         print( "---trigger.init DON'T DO THIS" )
     }
     
-    init( capacity:Int, channelToNotify:TriggerDelegate ) {
+    init( capacity:Int ) {
         print( "---trigger.init capacity:\(capacity)" )
-        self.channelToNotify = channelToNotify
         self.capacity = capacity
     }
     
@@ -106,10 +103,10 @@ class Trigger {
 class RisingEdgeTrigger: Trigger {
     var level:Int
     
-    init( capacity:Int, channelToNotify:TriggerDelegate, level:Int ) {
+    init( capacity:Int, level:Int ) {
         print("---risingEdgeTrigger capacity:\(capacity) level:\(level)")
         self.level = level
-        super.init(capacity: capacity, channelToNotify: channelToNotify)
+        super.init(capacity: capacity)
     }
     
     //
@@ -167,9 +164,6 @@ class RisingEdgeTrigger: Trigger {
     }
 }
 
-protocol TriggerDelegate {
-    func triggerEventDetected( event:TriggerEvent )
-}
 
 struct TriggerEvent {
     var timestamp:UInt

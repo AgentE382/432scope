@@ -18,23 +18,25 @@ import Foundation
 
 class SampleBuffer {
     
+    // use this to sync / lock the memory buffer
     private var gcdSampleBufferQueue:dispatch_queue_t? = nil
     
+    // the memory buffer itself
     private var samples:ContiguousArray<Sample> = []
     private var capacity:Int = 0
     private var writeIndex:Int = 0
     
+    // if there's a trigger object attached, samples will be passed through to it as well.
     var trigger:Trigger? = nil
     
-    func wrapIndex( index:Int ) -> Int {
-        var rval = index
-        while ( rval < 0 ) {
-            rval += capacity
-        }
-        while ( rval >= capacity ) {
-            rval -= capacity
-        }
-        return rval
+    func suspendWrites() {
+        dispatch_sync(gcdSampleBufferQueue!, {
+            dispatch_suspend(self.gcdSampleBufferQueue!)
+        })
+    }
+    
+    func resumeWrites() {
+        dispatch_resume(gcdSampleBufferQueue!)
     }
 
     init() {
@@ -49,9 +51,20 @@ class SampleBuffer {
         
         gcdSampleBufferQueue = dispatch_queue_create( "sampleBufferWriteQueue", DISPATCH_QUEUE_SERIAL )
     }
+    
+    func wrapIndex( index:Int ) -> Int {
+        var rval = index
+        while ( rval < 0 ) {
+            rval += capacity
+        }
+        while ( rval >= capacity ) {
+            rval -= capacity
+        }
+        return rval
+    }
 
     //
-    // READ FUNCTIONS which should ALL use dispatch_sync
+    // READ FUNCTIONS.  If you call these without suspending writes first, I can't help you.
     //
     
     func getNewestSample() -> Sample {
@@ -68,10 +81,6 @@ class SampleBuffer {
             return rval
         }
         
-       dispatch_sync(gcdSampleBufferQueue!, {
-            print("sync point")
-            dispatch_suspend(self.gcdSampleBufferQueue!)
-        })
         let safeNewest = self.wrapIndex(indexRange.newest + self.writeIndex + 1)
         let safeOldest = self.wrapIndex(indexRange.oldest + self.writeIndex + 1)
         if ( safeNewest < safeOldest ) {
@@ -82,7 +91,6 @@ class SampleBuffer {
             rval = Array<Sample>(self.samples[safeNewest...(self.capacity-1)])
             rval += Array<Sample>(self.samples[0...safeOldest])
         }
-        dispatch_resume(gcdSampleBufferQueue!)
         return rval
         
     }

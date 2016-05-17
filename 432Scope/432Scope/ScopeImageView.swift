@@ -8,17 +8,24 @@
 
 import Cocoa
 
+protocol ScopeImageViewNotifications {
+    func drawingWillBegin()
+    func drawingHasFinished()
+}
+
 class ScopeImageView: NSImageView {
+    
     
     // this prevents Cocoa from trying to draw things which would be behind this view, which is silly because this view covers them completely
     override var opaque:Bool {
         return true
     }
 
+    var notifications:ScopeImageViewNotifications? = nil
     var channels:[Channel] = []
 
     //
-    // TRACE PLOTTING
+    // SAMPLE PLOTTING
     //
     
     func drawSamplesPointArray(ch:Int) {
@@ -52,7 +59,7 @@ class ScopeImageView: NSImageView {
     }
 
     //
-    // GRID DRAWING
+    // GRID LINES
     //
     
     let gridLineLabelAttributes:[String:AnyObject] = [ NSForegroundColorAttributeName: NSColor(calibratedWhite:0.6, alpha:1.0),NSFontAttributeName: NSFont(name:"Menlo", size:10.0)! ]
@@ -97,7 +104,10 @@ class ScopeImageView: NSImageView {
         CONFIG_DISPLAY_SCOPEVIEW_BACKGROUND_COLOR.setFill()
         NSRectFill(NSRect(x: 0, y: 0, width: frame.width, height: frame.height))
         
-        // recompute if necessary
+        // let the boss know we're drawing...
+        if let del = notifications {
+            del.drawingWillBegin()
+        }
         
         // grid lines
         drawGridLines()
@@ -106,8 +116,11 @@ class ScopeImageView: NSImageView {
         for ch in 0..<channels.count {
             drawSamplesPointArray(ch)
         }
-        globalDrawActive = false
+        
+        // let the boss know our work here is done.
+        if let del = notifications {
+            del.drawingHasFinished()
+        }
+        
     }
 }
-
-var globalDrawActive:Bool = false
