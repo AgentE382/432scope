@@ -13,7 +13,7 @@ import Foundation
  
  BIG PICTURE:
  
- -the receiver opens a terminal with a POSIX file descriptor, then turns it into NSFileHandle.
+ -the transceiver opens a terminal with a POSIX file descriptor, then turns it into NSFileHandle.
  -reads are triggered by setting up the file descriptor as a dispatch source using Grand Central Dispatch.
  -reads go into a local NSMutableData buffer.
  -when a full Decoder packet length has been read, it is sent to the decoder.
@@ -27,13 +27,6 @@ let UART432Commands:[String:UInt8] = [
     "Start"     :       115,           // 's'
     "Stop"      :       112,           // 'p'
 ]
-
-enum TransceiverError: ErrorType {
-    case ScanFailed( msg:String )
-    case OpenFailed( msg:String )
-    case CloseFailed( msg:String )
-    case SendFailed( msg:String )
-}
 
 class Transceiver: NSObject, NSStreamDelegate {
     
@@ -86,30 +79,33 @@ class Transceiver: NSObject, NSStreamDelegate {
     //
     
     func openTerminal( deviceFilePath aPath: String ) throws {
+        
+        // errors in opening the terminal mean the channel isn't working, so errors here are thrown as ChannelFatal.
+        
         // idiot check: is the terminal already open? do we have a decoder?
         if ( isOpen ) {
-            throw TransceiverError.OpenFailed(msg: "Terminal is already open." )
+            throw Error.ChannelFatal("Terminal is already open." )
         }
         if ( decoder == nil ) {
-            throw TransceiverError.OpenFailed(msg: "No decoder attached." )
+            throw Error.ChannelFatal("No decoder object attached." )
         }
         
         // get a posix style file descriptor ...
         fileDescriptor = c_get_posix_file_descriptor( aPath )
         if ( fileDescriptor == -1 ) {
             fileDescriptor = nil
-            throw TransceiverError.OpenFailed(msg: "open() error \(errno): \(strerror(errno))")
+            throw Error.ChannelFatal("open() error \(errno): \(strerror(errno))")
         }
         
         // clear the NONBLOCK flag. reads will happen in their own thread (dispatch queue) so
         // in fact they -should- block it.
         if ( fcntl( fileDescriptor!, F_SETFL, 0 ) == -1 ) {
-            throw TransceiverError.OpenFailed( msg:"fcntl() error \(errno): \(strerror(errno))" )
+            throw Error.ChannelFatal("fcntl() error \(errno): \(strerror(errno))" )
         }
         
         // stash the terminal's original configuration
         if ( tcgetattr( fileDescriptor!, &originalTermios ) == -1 ) {
-            throw TransceiverError.OpenFailed( msg:"tcgetattr() error \(errno): \(strerror(errno))")
+            throw Error.ChannelFatal("tcgetattr() error \(errno): \(strerror(errno))")
         }
         
         // change a few terminal options
@@ -121,19 +117,19 @@ class Transceiver: NSObject, NSStreamDelegate {
         newTermios.c_ispeed = 300 // gonna override this anyway with IOCTL
         newTermios.c_ospeed = 300
         if ( tcsetattr( fileDescriptor!, TCSANOW, &newTermios ) == -1 ) {
-            throw TransceiverError.OpenFailed(msg: "tcsetattr() error \(errno): \(strerror(errno))")
+            throw Error.ChannelFatal("tcsetattr() error \(errno): \(strerror(errno))")
         }
         
         // attempting the crazy ioctl call ...
         if ( c_ioctl_set_crazy_baud_rate( fileDescriptor! ) == -1 ) {
-            throw TransceiverError.OpenFailed(msg: "ioctl() error \(errno)")
+            throw Error.ChannelFatal("ioctl() error while setting baud rate\(errno)")
         }
         
         // re-read termios and print out a few things.
         tcgetattr( fileDescriptor!, &newTermios )
-        print( "Terminal is open on \(aPath)" )
+/*        print( "Terminal is open on \(aPath)" )
         print( "ispeed: \(cfgetispeed(&newTermios))" )
-        print( "ospeed: \(cfgetospeed(&newTermios))" )
+        print( "ospeed: \(cfgetospeed(&newTermios))" )*/
         
         // create a serial dispatch queue
         gcdSerialQueue = dispatch_queue_create( "serialReadQueue\(aPath)", DISPATCH_QUEUE_SERIAL )
@@ -166,26 +162,27 @@ class Transceiver: NSObject, NSStreamDelegate {
             
             // 3) The Packetizer!
             var shippedSize:Int = 0
-            let packetSize = self.decoder!.packetSize
+            let packetSize = CONFIG_DECODER_PACKET_SIZE
             while (true) {
                 if ( self.buffer!.length < packetSize ) {
+                    // we don't yet have a complete packet.
                     break;
                 }
-                // get the complete packet, ship it off.
-                let packetRange = NSRange(location: 0, length: packetSize!)
+                // we have (at least) a complete packet, so ship that off to the decoder.
+                let packetRange = NSRange(location: 0, length: packetSize)
                 let nsdPacket = self.buffer!.subdataWithRange( packetRange )
                 self.decoder!.newPacketArrived( nsdPacket )
                 // add that to the shippedSize count.
-                shippedSize += packetSize!
+                shippedSize += packetSize
                 
                 // get the remaining range, make that the new buffer.
                 let originalBufferLength = self.buffer!.length
-                let newBuffer = self.buffer!.subdataWithRange( NSRange(location: packetSize!, length: originalBufferLength-packetSize!))
+                let newBuffer = self.buffer!.subdataWithRange( NSRange(location: packetSize, length: originalBufferLength-packetSize))
                 self.buffer = NSMutableData(data:newBuffer)
             }
             
             // 4) diagnostics ...
-//            print( "Read: \(dispatch_source_get_data(self.gcdDispatchSource!))\t\tShipped: \(shippedSize)\t\tIn Buffer: \(self.buffer!.length)")
+//            print( "Read: \(dispatch_source_get_data(self.gcdDispatchSource!))\t\t\tShipped: \(shippedSize)\t\tIn Buffer: \(self.buffer!.length)")
             
             // END POSIX READ HANDLER
         })
@@ -193,7 +190,7 @@ class Transceiver: NSObject, NSStreamDelegate {
         // get a file handle
         fileHandle = NSFileHandle(fileDescriptor: fileDescriptor!)
         if ( fileHandle == nil ) {
-            throw TransceiverError.OpenFailed(msg: "Couldn't get a file handle." )
+            throw Error.ChannelFatal("Couldn't create NSFileHandle.")
         }
         
         flush()
@@ -210,11 +207,11 @@ class Transceiver: NSObject, NSStreamDelegate {
             -write says something weird happened
          */
         if ( isOpen == false ) {
-            throw TransceiverError.SendFailed( msg: "Terminal isn't open." );
+            throw Error.ChannelFatal( "Terminal isn't open." );
         }
         var cmdByte:UInt8? = UART432Commands[nameOfCommandToSend]
         if ( cmdByte == nil ) {
-            throw TransceiverError.SendFailed( msg: "Unknown command." )
+            throw Error.ChannelFatal( "Unknown command." )
         }
         // schedule the write on the queue
         dispatch_async(gcdSerialQueue!, {
@@ -238,7 +235,7 @@ class Transceiver: NSObject, NSStreamDelegate {
     
     func closeTerminal( ) throws {
         if ( isOpen == false ) {
-            throw TransceiverError.CloseFailed(msg: "This receiver wasn't open." )
+            throw Error.ChannelFatal("This transceiver wasn't open." )
         }
         
         // kill the dispatch source.  the queue is suspended automatically as of 10.8
@@ -248,18 +245,18 @@ class Transceiver: NSObject, NSStreamDelegate {
         
         // reset termios
         if ( tcsetattr( fileDescriptor!, TCSANOW, &originalTermios ) == -1 ) {
-            throw TransceiverError.CloseFailed(msg: "tcsetattr() error \(errno): \(strerror(errno))")
+            throw Error.ChannelFatal("tcsetattr() error \(errno): \(strerror(errno))")
         }
         
         // kill the file descriptor
         if ( c_close_posix_file_descriptor( fileDescriptor! ) == -1 ) {
-            throw TransceiverError.CloseFailed(msg: "close() error \(errno): \(String(strerror(errno)))")
+            throw Error.ChannelFatal("close() error \(errno): \(String(strerror(errno)))")
         }
         
         fileDescriptor = nil
         fileHandle = nil
         
-        print( "Receiver closed." )
+        print( "Transceiver closed." )
  
     }
 }

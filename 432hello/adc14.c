@@ -3,8 +3,16 @@
 #include "led.h"
 #include "uart.h"
 
-#define ADC14_TRIGGER_PERIOD 150 	// SMCLK = 12 MHz, ID = 8, 1500000 ticks per second.
-									// 150 -> 10000 Hz.
+// SMCLK = 12 MHz, no divider.
+// some sampling rates:
+// 1200 = 10 kHz
+// 240 = 50 kHz
+// 120 = 100 kHz and that is ~2/3 UART saturation.
+
+#define ADC14_TRIGGER_PERIOD 120
+#define ADC14_TRIGGER_RETURN 60
+
+
 
 void ADC_InitializeTimerA2( )
 {
@@ -12,8 +20,8 @@ void ADC_InitializeTimerA2( )
 	TIMER_A2->CTL = TIMER_A_CTL_MC_0;
 
 	// Set source, divider, and clear
-	TIMER_A2->CTL |= TIMER_A_CTL_SSEL__SMCLK | // SMCLK = 12 MHz
-			TIMER_A_CTL_ID__8;					// divider
+	TIMER_A2->CTL |= TIMER_A_CTL_SSEL__SMCLK; // SMCLK = 12 MHz
+	TIMER_A2->CTL &= ~( TIMER_A_CTL_ID_MASK );
 	TIMER_A2->EX0 &= ~( TIMER_A_EX0_IDEX_MASK ); // clear the extended divider
 	// TIMER_A1->EX0 |= TIMER_A_EX0_TAIDEX_7; // extended divider
 	TIMER_A2->CTL |= TIMER_A_CTL_CLR;
@@ -24,7 +32,7 @@ void ADC_InitializeTimerA2( )
 	// the sample rate
 	TIMER_A2->CCR[0] = ADC14_TRIGGER_PERIOD;
 	// bring the trigger back after this long
-	TIMER_A2->CCR[1] = 75;
+	TIMER_A2->CCR[1] = ADC14_TRIGGER_RETURN;
 
 	// we don't want any timer interrupts but if we ever do, here they are:
 	// NVIC->ISER[0] = 1 << ((TA2_0_IRQn) & 31);
@@ -115,7 +123,7 @@ void ADC_Go( )
 	ADC14->IER0 |= BIT0;
 
 	TURN_ON_LEDB;
-	UartSendString("-----DAC GO-----\n\r\0");
+//	UartSendString("-----DAC GO-----\n\r\0");
 }
 
 void ADC_Stop( )
@@ -128,7 +136,7 @@ void ADC_Stop( )
 	ADC14->IER0 &= ~BIT0;
 
 	TURN_OFF_LEDB;
-	UartSendString( "-----DAC STOP-----\n\r\0" );
+//	UartSendString( "-----DAC STOP-----\n\r\0" );
 }
 
 void adc_ISR( )

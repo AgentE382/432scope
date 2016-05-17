@@ -8,158 +8,119 @@
 
 import Cocoa
 
+protocol ScopeImageViewNotifications {
+    func drawingWillBegin()
+    func drawingHasFinished()
+}
+
 class ScopeImageView: NSImageView {
     
-    //
-    // COCOA SILLINESS
-    //
-
+    
     // this prevents Cocoa from trying to draw things which would be behind this view, which is silly because this view covers them completely
     override var opaque:Bool {
         return true
     }
-    
-    //
-    // THE INFO NEEDED TO DRAW SIGNALS
-    //
-    
-    // the channels we're responsible for drawing
+
+    var notifications:ScopeImageViewNotifications? = nil
     var channels:[Channel] = []
-    
-    // drawing ranges
-//    var vvRange:VoltageRange = (CONFIG_AFE_VOLTAGE_RANGE.min, CONFIG_AFE_VOLTAGE_RANGE.max)
-//    var tvRange:TimeRange = (0.0, 2.0)
-    
-    // grid info
-//    var voltageGridPositions:[CGFloat] = []
-//    var timeGridPositions:[CGFloat] = []
-//    var voltageGridLines:[GridLine] = []
-//    var timeGridLines:[GridLine] = []
-//    var groundLineYCoord:CGFloat = 100
-    
-    //
-    // PLOTTING SAMPLE VALUES ON SCREEN
-    //
-    
-    var sampleVisibleRange:(min:Int, max:Int) = (0,Int(Sample.max))
-    var sampleScaleFactor:CGFloat = 0.001
-    
-    func recalculateSampleTranslationFactor( ch:Int ) {
-        sampleVisibleRange.min = channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.min)
-        sampleVisibleRange.max = channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.max)
-        let sampleSpan = sampleVisibleRange.max - sampleVisibleRange.min
-        sampleScaleFactor = frame.height / CGFloat(sampleSpan)
-    }
-    
-    func translateSampleToGraphicsY( sample:Sample ) -> CGFloat {
-        let sampleHeight = CGFloat(Int(sample)-sampleVisibleRange.min)
-        return sampleHeight * sampleScaleFactor
-    }
 
     //
-    // DRAWING FUNCTIONS
+    // SAMPLE PLOTTING
     //
     
-    func drawSamplesBezier( ch:Int ) {
-        // this is pretty fast. 13-14% without the NSPointArray involved.
-
-        // set up this channel's color and translation factor
-        channels[ch].displayColor.setStroke()
-        recalculateSampleTranslationFactor(ch)
+    func drawSamplesPointArray(ch:Int) {
+        // one channel: ~22%, yeah, it's a little faster ...
         
-        // get the samples, their spacing, starting X ...
-        let sampleArray = channels[ch].getSampleRange(ScopeViewMath.tvRange)
-        let sampleXSpacing:CGFloat = frame.width / CGFloat(sampleArray.count-1)
+        // set up this channel's color and translation factor
+        channels[ch].traceColor.setStroke()
+        
+        // get the samples, their count, their spacing, starting X ...
+        let samples = channels[ch].sampleBuffer.getSampleRange(ScopeViewMath.tvRange)
+        let sampleXSpacing:CGFloat = frame.width / CGFloat(samples.count)
         var xPosition = frame.width
         
         // set up the bezier path object ...
         let bezierPath = NSBezierPath()
-        bezierPath.moveToPoint(NSPoint(x: xPosition, y: translateSampleToGraphicsY(sampleArray[0])))
+        bezierPath.moveToPoint(NSPoint(x: xPosition, y: samples[0].asCoordinate() ))
         
-        // add the points
-        for sample in sampleArray {
-            bezierPath.lineToPoint(NSPoint(x: xPosition, y: translateSampleToGraphicsY(sample)))
+        // build an array of points from the first slice
+        let points = NSPointArray.alloc(samples.count)
+        for i in 0..<samples.count {
+            points[i] = NSPoint(x: xPosition, y: samples[i].asCoordinate() )
             xPosition -= sampleXSpacing
         }
+
+        bezierPath.appendBezierPathWithPoints(points, count: samples.count)
+
+        points.dealloc(samples.count)
         
-        // draw
+        // draw.  DO NOT closePath!!
         bezierPath.stroke()
     }
 
-    let gridLineLabelAttributes:[String:AnyObject] = [ NSForegroundColorAttributeName: NSColor(calibratedWhite:0.6, alpha:1.0),
-                                                       NSFontAttributeName: NSFont(name:"Menlo", size:10.0)! ]
+    //
+    // GRID LINES
+    //
     
-//    let gridLineLabelFrequency:Int = 2 // draw every 2nd label.
+    let gridLineLabelAttributes:[String:AnyObject] = [ NSForegroundColorAttributeName: NSColor(calibratedWhite:0.6, alpha:1.0),NSFontAttributeName: NSFont(name:"Menlo", size:10.0)! ]
     
     func drawGridLines( ) {
         // GRIDLINES
-        colorGridLine.setFill()
+        CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR.setFill()
         
-//        var labelCounter = 1
         // VERTICAL (TIME) GRIDLINES
         for tLine in ScopeViewMath.timeGridLines {
-            
             // line
             tLine.color.setFill()
             NSRectFill(NSRect(x: tLine.lineCoord, y: 0, width: 1, height: frame.height))
-            
-/*            if ( labelCounter < gridLineLabelFrequency ) {
-                labelCounter += 1
-                continue
-            }
-            labelCounter=1*/
-            
+            // label
             if let lineLabel = tLine.label {
                 let stringSize = lineLabel.sizeWithAttributes(gridLineLabelAttributes)
                 lineLabel.drawAtPoint(NSPoint(x:tLine.lineCoord, y:frame.height-stringSize.height), withAttributes: gridLineLabelAttributes)
             }
         }
         
-//        labelCounter = 1
         // HORIZONTAL (VOLTAGE) GRIDLINES
         for vLine in ScopeViewMath.voltageGridLines {
-            
+            //line
             vLine.color.setFill()
             NSRectFill(NSRect(x: 0, y: vLine.lineCoord, width: frame.width, height: 1))
-            
-/*            if ( labelCounter < gridLineLabelFrequency ) {
-                labelCounter += 1
-                continue
-            }
-            labelCounter=1*/
-            
+            //label
             if let lineLabel = vLine.label {
                 let stringSize = lineLabel.sizeWithAttributes(gridLineLabelAttributes)
                 lineLabel.drawAtPoint(NSPoint(x:frame.width-stringSize.width, y:vLine.lineCoord), withAttributes: gridLineLabelAttributes)
             }
         }
     }
+    
+    //
+    // DRAWING MAIN
+    //
 
     override func drawRect(dirtyRect: NSRect) {
         super.drawRect(dirtyRect)
-        var nsgc:NSGraphicsContext? = nil
-        if ( CONFIG_DISPLAY_ENABLE_ANTIALIASING == false ) {
-            nsgc = NSGraphicsContext.currentContext()
-            nsgc?.saveGraphicsState()
-            nsgc?.shouldAntialias = false
-        }
-        
+  
         // Black background
-        colorBackground.setFill()
+        CONFIG_DISPLAY_SCOPEVIEW_BACKGROUND_COLOR.setFill()
         NSRectFill(NSRect(x: 0, y: 0, width: frame.width, height: frame.height))
+        
+        // let the boss know we're drawing...
+        if let del = notifications {
+            del.drawingWillBegin()
+        }
         
         // grid lines
         drawGridLines()
         
         // curves
         for ch in 0..<channels.count {
-            drawSamplesBezier(ch)
+            drawSamplesPointArray(ch)
         }
         
-       
-        
-        if ( CONFIG_DISPLAY_ENABLE_ANTIALIASING == false ) {
-            nsgc?.restoreGraphicsState()
+        // let the boss know our work here is done.
+        if let del = notifications {
+            del.drawingHasFinished()
         }
+        
     }
 }

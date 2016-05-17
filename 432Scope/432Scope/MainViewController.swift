@@ -15,9 +15,6 @@ class MainViewController: NSViewController {
     var scopeView: ScopeViewController!
     var splitViewController: NSSplitViewController!
     
-    // keep a reference to any channels ...
-    var channels:[Channel] = []
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         print( "----ViewController.viewDidLoad")
@@ -26,7 +23,7 @@ class MainViewController: NSViewController {
         // let the app know i'm alive ...
         (NSApplication.sharedApplication().delegate as! AppDelegate).mvc = self
         
-        // enumerate the children
+        // enumerate the children so we can pass channels to them as they load.
         for controller in self.childViewControllers {
             if controller is NSSplitViewController {
                 splitViewController = controller as! NSSplitViewController
@@ -37,14 +34,16 @@ class MainViewController: NSViewController {
         }
     }
     
-    func channelIsReady( newChannel:Channel ) {
-        // we must pass this new channel to our children!
-        channels.append(newChannel)
-        scopeView.loadChannel(newChannel)
+    func loadChannel( newChannel:Channel ) throws {
+
+        // create a channel view controller for the new channel
         let storyboard = NSStoryboard(name: "Main", bundle: nil)
         let newChannelViewController = storyboard.instantiateControllerWithIdentifier("channelViewController") as! ChannelViewController
         splitViewController.addChildViewController(newChannelViewController)
-        newChannelViewController.loadChannel(newChannel)
+        
+        // load the new channel into its controller view and the scope view.
+        try newChannelViewController.loadChannel(newChannel)
+        scopeView.loadChannel(newChannel)
     }
 
     override var representedObject: AnyObject? {

@@ -8,74 +8,93 @@
 
 
 /* 
- it stores a fixed number of samples, circular-style.
- 
- when you add a sample, the oldest one is pushed out and discarded.
- 
+ stores samples, connects to a trigger detector ...
  Concurrency: array writes are done in a serial queue and reads pause the queue.
  */
 
 
 import Foundation
 
+
 class SampleBuffer {
     
+    // use this to sync / lock the memory buffer
     private var gcdSampleBufferQueue:dispatch_queue_t? = nil
-
-    private var samples = ContiguousArray<Sample>()
-
-    private(set) var capacity:Int = 0
+    
+    // the memory buffer itself
+    private var samples:ContiguousArray<Sample> = []
+    private var capacity:Int = 0
     private var writeIndex:Int = 0
     
+    // if there's a trigger object attached, samples will be passed through to it as well.
+    var trigger:Trigger? = nil
+    
+    func suspendWrites() {
+        dispatch_sync(gcdSampleBufferQueue!, {
+            dispatch_suspend(self.gcdSampleBufferQueue!)
+        })
+    }
+    
+    func resumeWrites() {
+        dispatch_resume(gcdSampleBufferQueue!)
+    }
+
     init() {
     }
     
     init( capacity:Int, clearValue:Sample ) {
-        samples = ContiguousArray<Sample>(count:capacity, repeatedValue:0)
+        samples = ContiguousArray<Sample>(count: capacity, repeatedValue: clearValue)
         samples.reserveCapacity(capacity)
+        
         self.capacity = capacity
         writeIndex = capacity - 1
+        
         gcdSampleBufferQueue = dispatch_queue_create( "sampleBufferWriteQueue", DISPATCH_QUEUE_SERIAL )
-        clearAllSamples(clearValue)
+    }
+    
+    func wrapIndex( index:Int ) -> Int {
+        var rval = index
+        while ( rval < 0 ) {
+            rval += capacity
+        }
+        while ( rval >= capacity ) {
+            rval -= capacity
+        }
+        return rval
     }
 
     //
-    // READ FUNCTIONS which should ALL suspend the dispatch queue
+    // READ FUNCTIONS.  If you call these without suspending writes first, I can't help you.
     //
     
-    // this really should only be called by Channel for getInstantaneousVoltage.
-    // everything else should be asking for ranges.
     func getNewestSample() -> Sample {
-        dispatch_suspend( gcdSampleBufferQueue! )
-        let newestSample = samples[newestSampleIndex]
-        dispatch_resume( gcdSampleBufferQueue! )
-        return newestSample
+        let newestSampleIndex = self.wrapIndex(self.writeIndex + 1)
+        return self.samples[newestSampleIndex]
     }
     
-    func getSubArray( indexRange:SampleIndexRange ) -> Array<Sample> {
-        dispatch_suspend( gcdSampleBufferQueue! )
-        var returnArray:[Sample] = []
-        returnArray.reserveCapacity(indexRange.oldest-indexRange.newest+1)
+    func getSampleRange( timeRange:TimeRange ) -> Array<Sample> {
         
-        // first job: translate sample indices into array indices.
-        let aIndices:SampleIndexRange = (boundsCheckIndex(indexRange.newest + newestSampleIndex), boundsCheckIndex(indexRange.oldest + newestSampleIndex))
-        
-        // now figure out if the range wraps around the end of the contiguous array
-        if ( aIndices.newest < aIndices.oldest ) {
-            // the range is one contiguous block, no wraparound.
-//            print("indices \(indexRange)->\(aIndices) contiguous")
-            returnArray = Array(samples[aIndices.newest...aIndices.oldest])
-        } else {
-            // the range wraps around. we need to get two arrays and cat them.
-//            print("indices \(indexRange)->\(aIndices) wrapped")
-            returnArray = Array(samples[aIndices.newest..<capacity])
-            returnArray += Array(samples[0...aIndices.oldest])
+        var rval:Array<Sample> = []
+        let indexRange:SampleIndexRange = (newest:timeRange.newest.asSampleIndex(), oldest:timeRange.oldest.asSampleIndex())
+
+        if ((indexRange.oldest - indexRange.newest) == 0) {
+            return rval
         }
-//        print("returning \(returnArray.count) samples")
-        dispatch_resume( gcdSampleBufferQueue! )
-        return returnArray
+        
+        let safeNewest = self.wrapIndex(indexRange.newest + self.writeIndex + 1)
+        let safeOldest = self.wrapIndex(indexRange.oldest + self.writeIndex + 1)
+        if ( safeNewest < safeOldest ) {
+            // contiguous
+            rval = Array<Sample>(self.samples[safeNewest...safeOldest])
+        } else {
+            // the range wraps around the end of the array
+            rval = Array<Sample>(self.samples[safeNewest...(self.capacity-1)])
+            rval += Array<Sample>(self.samples[0...safeOldest])
+        }
+        return rval
+        
     }
-    
+
     //
     // WRITE FUNCTIONS which should ALL queue their writes.
     //
@@ -83,9 +102,9 @@ class SampleBuffer {
     func storeNewSample( newSample:Sample ) {
         dispatch_sync( gcdSampleBufferQueue!, {
             self.samples[self.writeIndex] = newSample
-            self.writeIndex -= 1
-            if (self.writeIndex == 0) {
-                self.writeIndex = self.capacity-1
+            self.writeIndex = self.wrapIndex(self.writeIndex-1)
+            if let trig = self.trigger {
+                trig.processSample(newSample)
             }
         })
     }
@@ -96,31 +115,5 @@ class SampleBuffer {
                 self.samples[i] = clearValue
             }
         })
-    }
-    
-    //
-    // INTERNAL HELPERS
-    //
-    
-    var newestSampleIndex:Int {
-        let rval = writeIndex + 1
-        if ( rval == capacity ) {
-            return 0
-        } else {
-            return rval
-        }
-    }
-    
-    private func boundsCheckIndex( index:Int ) -> Int {
-        var rval:Int = index
-        while (rval < 0) {
-            // it's too small. add capacity until it's good.
-            rval += capacity
-        }
-        while (rval >= capacity) {
-            // too big. remove capacity
-            rval -= capacity
-        }
-        return rval
     }
 }

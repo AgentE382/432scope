@@ -9,140 +9,73 @@
 import Foundation
 import Cocoa
 
-/*
- Global constants, build config ...
- */
+//
+// DISPLAY
+//
 
 // The display frame rate!
 let CONFIG_DISPLAY_REFRESH_RATE:Double = 20
 
-// If you really want that pixel-perfect look .....
-let CONFIG_DISPLAY_ENABLE_ANTIALIASING:Bool = true
-
 // Scope View grid colors
-let colorBackground = NSColor(calibratedWhite: 0.0, alpha: 1.0)
-let colorGridLine = NSColor(calibratedWhite: 0.2, alpha: 1.0)
-let colorGroundLine = NSColor(calibratedWhite: 0.6, alpha: 1.0)
+let CONFIG_DISPLAY_SCOPEVIEW_BACKGROUND_COLOR = NSColor(calibratedWhite: 0.0, alpha: 1.0)
+let CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR = NSColor(calibratedWhite: 0.2, alpha: 1.0)
+let CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR = NSColor(calibratedWhite: 0.6, alpha: 1.0)
 
-// make this higher for more drastic zooms
-let CONFIG_DISPLAY_MAGNFICATION_FACTOR:Double = 1.2
-
-// outer Scope View voltage limits
+// scope view scrolling limits
+let CONFIG_DISPLAY_TIME_LIMITS = TimeRange(newest:0, oldest:10)
 let CONFIG_DISPLAY_VOLTAGE_LIMITS = VoltageRange(min:-20, max:20)
 
-// minimum and maximum voltage display spans (zoom levels!)
+// scope view zooming limits
+let CONFIG_DISPLAY_TIME_SPAN_LIMITS:(min:Time, max:Time) = (0.001, CONFIG_DISPLAY_TIME_LIMITS.span)
 let CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS:(min:Voltage, max:Voltage) = (0.1, CONFIG_DISPLAY_VOLTAGE_LIMITS.span)
 
-// grid line spacing constant.
+// grid line spacing constant.  This is essentially the minimum space between gridlines.
 let CONFIG_DISPLAY_TIME_GRID_CONSTANT:CGFloat = 80
 let CONFIG_DISPLAY_VOLTAGE_GRID_CONSTANT:CGFloat = 50
+
+//
+// I/O
+//
 
 // The UART baud rate
 let CONFIG_BAUDRATE:Int = 3000000
 
+// how many Bytes come through the UART per sample (this value is used to compute read lengths)
+let CONFIG_INCOMING_SAMPLE_SIZE_IN_BYTES:Int = 2
+
+// the 432's sample rate, in Hertz
+let CONFIG_SAMPLERATE:Int = 100000
+
+// the length of time to store in the sample buffers
+let CONFIG_BUFFER_LENGTH:Int = 10
+
 // the range of voltages the analog front end can accept
-let CONFIG_AFE_VOLTAGE_RANGE:(min:Double, max:Double) = (-15.0, 15.0)
+let CONFIG_AFE_VOLTAGE_RANGE = VoltageRange(min:-15.0, max:15.0)
 
 // the max bound that voltage range will get mapped to by the ADC.
 let CONFIG_SAMPLE_MAX_VALUE:Sample = 16383 // 2^14-1
 
-// TODO: build more intelligent device detection.  this is dumb.
-let CONFIG_SINGLECHANNEL_DEVICE:String = "00000001"
-
-// the 432's sample rate, in Hertz
-let CONFIG_SINGLECHANNEL_SAMPLERATE:Int = 10000
-
-// the buffer length, in seconds
-let CONFIG_BUFFER_LENGTH:Int = 10
-
-// the range of times that can be displayed on screen.
-let CONFIG_DISPLAY_TIME_LIMITS = TimeRange(newest:0.0, oldest:10.0)
-
-// the minimum and maximum time spans (zoom levels)
-let CONFIG_DISPLAY_TIME_SPAN_LIMITS:(min:Time, max:Time) = (0.001, CONFIG_DISPLAY_TIME_LIMITS.span)
-
-
-
 
 //
-// NOW I'm using that stuff to compute some sane read and packet sizes.
-// The packet size in particular will have to change when there's compression.
-// But these should be decent for raw 16-bit samples.
+// NOW I'm using that stuff to compute some other constants.  Don't configure these directly.
 //
 
-// Internal sample and voltage formats.
-typealias Sample = UInt16
-typealias Voltage = Double
+let CONFIG_SAMPLEPERIOD:Time = 1.0/Time(CONFIG_SAMPLERATE)
 
-// sizeof(sample)
-let CONFIG_SAMPLE_SIZE:Int = sizeof(Sample)
+let CONFIG_INCOMING_BYTES_PER_SECOND:Int = CONFIG_SAMPLERATE * CONFIG_INCOMING_SAMPLE_SIZE_IN_BYTES
 
-// some helpers ...
-func roundDoubleUpToNearestSampleSize(value:Double) -> Int {
-    let fractionNum = value / Double(CONFIG_SAMPLE_SIZE)
-    let roundedNum = Int(ceil(fractionNum))
-    return roundedNum * CONFIG_SAMPLE_SIZE
-}
-
-func clampToUInt8Range( value:Int ) -> UInt8 {
-    if ( value < 0 ) {
-        return UInt8(0)
-    }
-    if ( value > 255 ) {
-        return UInt8(255)
-    }
-    return UInt8(value)
-}
-
-func clampValue<T:Comparable>( inout value:T, bounds:(min:T, max:T) ) {
-    // if the bounds are messed up, you (caller) can go to hell.  behavior undefined.  actually it'll just return bounds.max.  but go to hell anyway.
-    if ( value < bounds.min ) {
-        value = bounds.min
-        return
-    }
-    if ( value > bounds.max ) {
-        value = bounds.max
-        return
-    }
-}
-
-let CONFIG_INCOMING_DATA_BYTES_PER_SECOND:Int = CONFIG_SINGLECHANNEL_SAMPLERATE * CONFIG_SAMPLE_SIZE
-
-let CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME:Double = Double(CONFIG_INCOMING_DATA_BYTES_PER_SECOND)/CONFIG_DISPLAY_REFRESH_RATE
+let CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME:Double = Double(CONFIG_INCOMING_BYTES_PER_SECOND)/CONFIG_DISPLAY_REFRESH_RATE
 
 // The decoder packet size also in bytes.
-let CONFIG_DECODER_PACKET_SIZE:Int = roundDoubleUpToNearestSampleSize(CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME)
+let CONFIG_DECODER_PACKET_SIZE:Int = roundDoubleUpToNearestIncomingSampleBoundary(CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME)
 
-// The POSIX read length in bytes
-let CONFIG_POSIX_READ_LENGTH:UInt8 = clampToUInt8Range(CONFIG_DECODER_PACKET_SIZE)
+// The POSIX termios.vmin minimum read length in bytes.  At high sample rates, most reads will be much bigger than this anyway.
+let CONFIG_POSIX_READ_LENGTH:UInt8 = UInt8(clampToRange(CONFIG_DECODER_PACKET_SIZE, min: 2, max: 254))
 
-func getVoltageAsString( voltage:Voltage ) -> String {
-    if ( abs(voltage) < 0.001 ) {
-        // display micro volts
-        let displayNumber = voltage * 1000
-        return String(format:"%3.4f", displayNumber) + " \u{03BC}V"
-    }
-    if ( abs(voltage) < 1 ) {
-        // display millivolts
-        let displayNumber = voltage * 1000
-        return String(format:"%3.4f", displayNumber) + " mV"
-    }
-    return String(format:"%.4f", voltage) + " V"
+
+func roundDoubleUpToNearestIncomingSampleBoundary(value:Double) -> Int {
+    let fractionNum = value / Double(CONFIG_INCOMING_SAMPLE_SIZE_IN_BYTES)
+    let roundedNum = Int(ceil(fractionNum))
+    return roundedNum * CONFIG_INCOMING_SAMPLE_SIZE_IN_BYTES
 }
-
-func getTimeAsString( time:Time ) ->String {
-    if ( abs(time) < 0.001 ) {
-        // display micro
-        let displayNumber = time * 1000
-        return String(format:"%3.4f", displayNumber) + " \u{03BC}S"
-    }
-    if ( abs(time) < 1 ) {
-        // display milli
-        let displayNumber = time * 1000
-        return String(format:"%3.4f", displayNumber) + " mS"
-    }
-    return String(format:"%.4f", time) + " S"
-}
-
-
 

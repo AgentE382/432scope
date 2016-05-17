@@ -9,43 +9,157 @@
 import Foundation
 import Cocoa
 
-/*
+protocol ChannelNotifications {
+    func channelHasNewData(sender:Channel)
+    func channelTriggerChanged(sender:Channel)
+}
 
+class Channel : TriggerNotifications, DecoderNotifications {
+    
+    //
+    // DECODER NOTIFICATION
+    //
+    
+    var isDrawable:Bool = false
+    
+    func decoderPacketFinished() {
+        if let svc = notifications {
+            isDrawable = true
+            svc.channelHasNewData(self)
+        }
+    }
+    
+    //
+    // TRIGGERING - once a trigger is installed, triggerEventDetected gets called when there's an event.
+    //
+    
+    var hasTrigger:Bool {
+        get {
+            if sampleBuffer.trigger == nil {
+                return false
+            }
+            return true
+        }
+    }
 
- */
-typealias Time = CGFloat
-typealias SampleIndexRange = (newest:Int, oldest:Int)
-
-class Channel {
+    // trigger installers
+    func installNoTrigger() {
+        sampleBuffer.trigger = nil
+        lastTriggerEvent = nil
+        // let SVC know the trigger situation has changed
+        if let svc = notifications {
+            svc.channelTriggerChanged(self)
+        }
+    }
+    
+    func installRisingEdgeTrigger( triggerLevel:Voltage ) {
+        sampleBuffer.trigger = RisingEdgeTrigger(capacity: CONFIG_SAMPLERATE*CONFIG_BUFFER_LENGTH, level:triggerLevel.asSample())
+        sampleBuffer.trigger!.notifications = self
+        lastTriggerEvent = nil
+        if let svc = notifications {
+            svc.channelTriggerChanged(self)
+        }
+    }
+    
+    // the basic notification handler
+    func triggerEventDetected( event:TriggerEvent ) {
+        if let lastEvent = lastTriggerEvent {
+            // there's been a prior event to compare this new one to, so we can compute frequency.
+            let period = event.timestamp - lastEvent.timestamp
+            triggerFrequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
+        }
+        lastTriggerEvent = event
+    }
+    
+    // compute interesting things based on trigger events
+    private(set) var lastTriggerEvent:TriggerEvent? = nil
+    
+    var triggerFrequency:Frequency = 0.0
+    
+    var triggerPeriodVoltageRange:VoltageRange {
+        get {
+            guard lastTriggerEvent != nil else {
+                return VoltageRange(min:0, max:0)
+            }
+            return VoltageRange(min: lastTriggerEvent!.periodLowestSample.asVoltage(), max: lastTriggerEvent!.periodHighestSample.asVoltage())
+        }
+    }
+    
+    func getTriggeredCenterTime( visibleRangeHalfSpan:Time ) -> Time? {
+        // if there's actually no trigger attached, this isn't gonna work ...
+        guard sampleBuffer.trigger != nil else {
+            return nil
+        }
+        
+        // if there's a trigger but no events yet, same deal ...
+        let events = sampleBuffer.trigger!.eventTimestamps
+        let currentTime = sampleBuffer.trigger!.currentTimestamp
+        guard events.count > 0 else {
+            return nil
+        }
+        
+        let minimumSampleIndex = UInt(visibleRangeHalfSpan.asSampleIndex())
+        for i in 1...events.count {
+            // we have to do a little index-flipping math to count down, because the newest timestamps are at the end of the array.
+            let index = events.count - i
+            let age = currentTime &- events[index]
+            if ( age > minimumSampleIndex ) {
+                return SampleIndex(age).asTime()
+            }
+        }
+        return nil
+    }
+    
+    //
+    // FUNDAMENTALS
+    //
+    
+    // this sends out "drawable" notifications
+    var notifications:ChannelNotifications? = nil
     
     // display parameters
-    var displayColor = NSColor(calibratedRed: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)
+    var traceColor = TraceColorGenerator.getColor()
     
     // the signal chain
-    var transceiver:Transceiver? = nil
-    var decoder:Decoder? = nil
-    var sampleBuffer = SampleBuffer()
+    private(set) var transceiver:Transceiver? = nil
+    private(set) var decoder:Decoder? = nil
+    private(set) var sampleBuffer = SampleBuffer()
     
-    // might need to know these externally.
     private(set) var isChannelOn:Bool = false
     
-    // might need to know these internally.
-    var device:USBDevice? = nil;
-    var sampleRateInHertz:Int = 0 // samples per second
-    private(set) var bufferLengthInSeconds:Int = 0
+    private(set) var device:USBDevice? = nil;
+    
+    var name:String {
+        if ( device == nil ) {
+            return "i am a channel without a device."
+        }
+        return device!.deviceFile
+    }
+    
+    func channelOn( ) throws {
+        transceiver!.flush()
+        sampleBuffer.clearAllSamples( Voltage(0.0).asSample() )
+        try transceiver!.send("Start")
+        isChannelOn = true
+    }
+    
+    func channelOff( ) throws {
+        isChannelOn = false
+        try transceiver!.send("Stop")
+        transceiver!.flush()
+    }
     
     init( device:USBDevice, sampleRateInHertz:Int, bufferLengthInSeconds:Int ) throws {
         self.device = device
-        self.sampleRateInHertz = sampleRateInHertz
-        self.bufferLengthInSeconds = bufferLengthInSeconds
         
         // create a sample buffer ...
         let bufferCapacity:Int = sampleRateInHertz * bufferLengthInSeconds
-        sampleBuffer = SampleBuffer(capacity: bufferCapacity, clearValue: groundSampleValue)
+        sampleBuffer = SampleBuffer(capacity: bufferCapacity, clearValue: Voltage(0.0).asSample() )
         print("----Channel.init() created \(bufferCapacity)-deep sample buffer")
         
         // and a decoder ...
-        decoder = Decoder(packetSizeInBytes: CONFIG_DECODER_PACKET_SIZE, sampleBuffer: sampleBuffer )
+        decoder = Decoder(sampleBuffer: sampleBuffer)
+        decoder!.notifications = self
         
         // and a transceiver.
         try transceiver = Transceiver(deviceFilePath: device.deviceFile, decoder: decoder!)
@@ -54,85 +168,50 @@ class Channel {
         
     }
     
-    func channelOn( ) throws {
-        transceiver!.flush()
-        sampleBuffer.clearAllSamples( groundSampleValue)
-        try transceiver!.send("Start")
-        isChannelOn = true
-    }
-    
-    func channelOff( ) throws {
-        try transceiver!.send("Stop")
-        transceiver!.flush()
-        isChannelOn = false
-    }
-    
     deinit {
         print( "----Channel.deinit" )
         if (transceiver != nil ) {
             do { try transceiver!.closeTerminal()
-            } catch {
+            } catch let msg {
+                print(msg)
                 print("Channel deinit: closeTerminal failed.")
             }
         }
     }
-    
-    //
-    // FRONTEND
-    //
-    
-    func getName( ) -> String {
-        if ( device == nil ) {
-            return "i am a channel without a device."
-        }
-        return device!.deviceFile
-    }
-    
-    func getInstantaneousVoltage( ) -> Voltage {
-        return translateSampleToVoltage(sampleBuffer.getNewestSample())
-    }
-    
-    func getSampleRange( timeRange:TimeRange ) -> Array<Sample> {
-        let sampleIndices = translateTimeRangeToSampleIndices(timeRange)
-        return sampleBuffer.getSubArray(sampleIndices)
-    }
-    
-    func translateTimeRangeToSampleIndices( timeRange:TimeRange ) -> SampleIndexRange {
-        let newestIndex = timeRange.newest * Time(sampleRateInHertz)
-        var oldestIndex = timeRange.oldest * Time(sampleRateInHertz)
-        if (oldestIndex < 1 ) {
-            oldestIndex = 1
-        }
-        return SampleIndexRange(newest:Int(floor(newestIndex)),
-                                oldest:Int(floor(oldestIndex))-1)
-    }
-    
-    //
-    // INTERNAL HELPERS
-    //
-    
-    // these are used to translate samples to voltages
-    let voltageScaleOffset:Voltage = CONFIG_AFE_VOLTAGE_RANGE.min
-    let scaleFactorSampleToVoltage:Voltage = (CONFIG_AFE_VOLTAGE_RANGE.max - CONFIG_AFE_VOLTAGE_RANGE.min) / Voltage(CONFIG_SAMPLE_MAX_VALUE)
-    let scaleFactorVoltageToSample:Voltage = Voltage(CONFIG_SAMPLE_MAX_VALUE)/(CONFIG_AFE_VOLTAGE_RANGE.max - CONFIG_AFE_VOLTAGE_RANGE.min)
-    
-    func translateSampleToVoltage( sample:Sample ) -> Voltage {
-        let rval:Voltage = Voltage(sample) * scaleFactorSampleToVoltage
-        return rval + voltageScaleOffset
-    }
-    
-    var groundSampleValue:Sample {
-        return Sample(translateVoltageToSample(0.0))
-    }
-    
-    // this must return Int so that it can provide a value for voltages that are actually
-    // out of range.  it's for the display.
-    func translateVoltageToSample( voltage:Voltage ) -> Int {
-        let rval:Voltage = voltage - voltageScaleOffset
-        // floor this?
-        return Int(rval * scaleFactorVoltageToSample)
-    }
 }
 
+//
+// This thing just wraps up the trace color assignments.
+//
 
+class TraceColorGenerator {
+    private static var counter:Int = 0
+    private static var scopeTraceColors:NSColorList? = nil
+    private static var channelColorKeys:[String] = []
+    
+    class func getColor( ) -> NSColor {
+        // we need to generate the color list first time this is called.
+        if (scopeTraceColors == nil) {
+            createColorList()
+        }
+        
+        let index = counter % channelColorKeys.count
+        let color = scopeTraceColors!.colorWithKey(channelColorKeys[index])
+        counter += 1
+        return color!
+    }
+    
+    private class func createColorList( ) {
+        // create a list of colors to use as default channel trace colors, removing black and white
+        let appleColorList = NSColorList(named: "Apple")
+        scopeTraceColors = NSColorList(name: "Scope Trace Colors" )
+        for color in appleColorList!.allKeys {
+            if ( color == "Black" || color == "White" ) {
+                continue
+            }
+            scopeTraceColors!.insertColor((appleColorList?.colorWithKey(color))!, key: color, atIndex: 0)
+        }
+        channelColorKeys = scopeTraceColors!.allKeys
+    }
+}
 

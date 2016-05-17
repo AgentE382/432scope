@@ -8,81 +8,66 @@
 
 import Cocoa
 
+enum Error:ErrorType {
+    case AppFatal(String)
+    case ChannelFatal(String)
+}
+
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
 
+    // use this object to pass channels along to the UI as they come online
     var mvc:MainViewController? = nil
     
+    // keep a scanner object here, in anticipation of hotplug
     let scanner = USBScanner()
+    
+    // keep successfully init-ed channels here so we can shut them down on a terminate notification.
     var channels:[Channel] = []
 
     func applicationDidFinishLaunching(aNotification: NSNotification) {
         // Insert code here to initialize your application
         print("----applicationDidFinishLaunching" )
         
-        
         // print constants for diag:
-/*        print("--UI")
-        print("display frame rate: \(CONFIG_DISPLAY_REFRESH_RATE)")
-        print("--TRANSCEIVER")
-        print("incoming sample rate: \(CONFIG_SINGLECHANNEL_SAMPLERATE) Hz")
-        print("incoming data rate: \(CONFIG_INCOMING_DATA_BYTES_PER_SECOND) Bps")
-        print("bytes per display frame: \(CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME)")
-        print("decoder packet size: \(CONFIG_DECODER_PACKET_SIZE)")
-        print("posix read length: \(CONFIG_POSIX_READ_LENGTH)")
- 
-        print("here we go...")*/
-        
-        
-        // load system colors to use as channel colors, removing black and white
-        let appleColorList = NSColorList(named: "Apple")
-        let scopeTraceColors = NSColorList(name: "Scope Trace Colors" )
-        // remove black and white
-        for color in appleColorList!.allKeys {
-            if ( color == "Black" || color == "White" ) {
-                continue
-            }
-            scopeTraceColors.insertColor((appleColorList?.colorWithKey(color))!, key: color, atIndex: 0)
-        }
-        let channelColorKeys = scopeTraceColors.allKeys
-        let channelColorCount = channelColorKeys.count
-        
-        
-        
+        print("--CONSTANTS:::")
+        print("\tdisplay frame rate: \(CONFIG_DISPLAY_REFRESH_RATE)")
+        print("\tincoming sample rate: \(CONFIG_SAMPLERATE) Hz")
+        print("\tincoming data rate: \(CONFIG_INCOMING_BYTES_PER_SECOND) Bps")
+        print("\tbytes per display frame: \(CONFIG_INCOMING_BYTES_PER_DISPLAY_FRAME)")
+        print("\tdecoder packet size: \(CONFIG_DECODER_PACKET_SIZE)")
+        print("\tposix read length: \(CONFIG_POSIX_READ_LENGTH)")
         
         // idiot check, make sure a main view controller exists.
-        if ( mvc == nil ) {
+        guard mvc != nil else {
             print( "i have no mvc! EEEEEEK" )
             omgKillTheApp()
+            return
         }
-    
-        
+
         // the channel creation try-catch of doom
         do {
-            
-            let devices = try scanner.betterScan()
-            // scan for USB devices ...
-            if ( devices.count == 0 ) {
-                print( "No devices found." )
-                omgKillTheApp()
-            }
-            
-            // pass those channels along to the view controllers.
+            let devices = try scanner.initialDeviceScan()
+            print("--DEVICES:::\n\(devices)")
+        
+            // open channels and pass them to the main view controller
             for i in 0..<devices.count {
-                // try to open some channels ...
-                let newChannel = try Channel(device: devices[i], sampleRateInHertz: CONFIG_SINGLECHANNEL_SAMPLERATE, bufferLengthInSeconds: CONFIG_BUFFER_LENGTH)
-                
-                channels.append(newChannel)
-                channels[i].displayColor = scopeTraceColors.colorWithKey(channelColorKeys[i%channelColorCount])!
-                mvc?.channelIsReady(channels[i])
+                // open a channel for each device.
+                do {
+                    let newChannel = try Channel(device: devices[i], sampleRateInHertz: CONFIG_SAMPLERATE, bufferLengthInSeconds: CONFIG_BUFFER_LENGTH)
+                    try mvc?.loadChannel(newChannel)
+                    channels.append(newChannel)
+                }
+                catch Error.ChannelFatal(let msg) {
+                    print("!!! ChannelFatal: \(msg)")
+                }
             }
-            
-            
-            
-        } catch TransceiverError.OpenFailed( let msg ) {
-            print( msg )
+
+        } catch Error.AppFatal( let msg ) {
+            print( "!!! AppFatal: \(msg)")
+            omgKillTheApp()
         } catch {
-            print( "Something stupid happened.  Goodbye." )
+            print( "Something stupid happened.  An unknown error got thrown.  Goodbye." )
         }
     }
     
@@ -101,8 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             print( "Something stupid happened.  Goodbye." )
         }
+        print("----applicationWillTerminate ended.")
     }
-
-
 }
 

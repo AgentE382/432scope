@@ -16,6 +16,6 @@ class WindowController: NSWindowController {
         // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
         
         // get that nice unified title bar + toolbar look!
-        window!.titleVisibility = .Hidden;
+        //window!.titleVisibility = .Hidden;
     }
 }
