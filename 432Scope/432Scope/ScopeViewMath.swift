@@ -11,6 +11,14 @@ import Cocoa
 
 class ScopeViewMath {
     
+    // the Scope View state
+    enum ScopeImageViewDisplayState {
+        case Stop
+        case Timeline
+        case Trigger(Channel)
+    }
+    static var scopeImageViewDisplayState:ScopeImageViewDisplayState = .Timeline
+    
     // GETTABLE: the view data set maintained here, needed for drawing.
     static private(set) var imageSize:CGSize = CGSize()
     static private(set) var vvRange:VoltageRange = VoltageRange(min:-20, max:20)
@@ -222,16 +230,48 @@ class ScopeViewMath {
     //
     
     private class func recalculateTimeGridLines( ) {
-        let firstGridMultiplier = ceil(tvRange.newest / timeGridSpacing)
-        var aGridTime:Time = firstGridMultiplier * timeGridSpacing
-        var gridCoords:[GridLine] = []
-        while ( aGridTime < tvRange.oldest ) {
-            let xPos = aGridTime.asCoordinate()
-            let label = aGridTime.asString()
-            gridCoords.append(GridLine(lineCoord:xPos, label:label))
-            aGridTime += timeGridSpacing
+        // this changes depending on the view mode...
+        switch scopeImageViewDisplayState {
+            
+        case .Stop, .Timeline:
+            let firstGridMultiplier = ceil(tvRange.newest / timeGridSpacing)
+            var aGridTime:Time = firstGridMultiplier * timeGridSpacing
+            var gridCoords:[GridLine] = []
+            while ( aGridTime < tvRange.oldest ) {
+                let xPos = aGridTime.asCoordinate()
+                let label = aGridTime.asString()
+                gridCoords.append(GridLine(lineCoord:xPos, label:label))
+                aGridTime += timeGridSpacing
+            }
+            timeGridLines = gridCoords
+            break
+            
+        case .Trigger:
+            var gridCoords:[GridLine] = []
+            
+            // start at the first gridline in positive time, count newer
+            let centerTime:Time = tvRange.center
+            var aGridTime = centerTime - timeGridSpacing
+            while (aGridTime > tvRange.newest) {
+                let xPos = aGridTime.asCoordinate()
+                let xLabel = (-(aGridTime - centerTime)).asString()
+                gridCoords.append(GridLine(lineCoord: xPos, label: xLabel))
+                aGridTime -= timeGridSpacing
+            }
+            // count older
+            aGridTime = centerTime + timeGridSpacing
+            while ( aGridTime < tvRange.oldest ) {
+                let xPos = aGridTime.asCoordinate()
+                let xLabel = (-(aGridTime - centerTime)).asString()
+                gridCoords.append(GridLine(lineCoord: xPos, label: xLabel))
+                aGridTime += timeGridSpacing
+            }
+            // add t=0 line
+            gridCoords.append(GridLine(lineCoord: centerTime.asCoordinate(), label: Time(0.0).asString(), color: NSColor(calibratedWhite: 1.0, alpha: 1.0)))
+            
+            timeGridLines = gridCoords
+            break
         }
-        timeGridLines = gridCoords
     }
     
     private class func recalculateVoltageGridLines( ) {

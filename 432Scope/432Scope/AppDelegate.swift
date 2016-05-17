@@ -86,8 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             print( "Something stupid happened.  Goodbye." )
         }
+        print("----applicationWillTerminate ended.")
     }
-
-
 }
 

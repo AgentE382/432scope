@@ -10,7 +10,8 @@ import Foundation
 import Cocoa
 
 protocol ChannelNotifications {
-    func channelHasNewData()
+    func channelHasNewData(sender:Channel)
+    func channelTriggerChanged(sender:Channel)
 }
 
 class Channel : TriggerNotifications, DecoderNotifications {
@@ -24,24 +25,40 @@ class Channel : TriggerNotifications, DecoderNotifications {
     func decoderPacketFinished() {
         if let svc = notifications {
             isDrawable = true
-            svc.channelHasNewData()
+            svc.channelHasNewData(self)
         }
     }
     
     //
     // TRIGGERING - once a trigger is installed, triggerEventDetected gets called when there's an event.
     //
+    
+    var hasTrigger:Bool {
+        get {
+            if sampleBuffer.trigger == nil {
+                return false
+            }
+            return true
+        }
+    }
 
     // trigger installers
     func installNoTrigger() {
         sampleBuffer.trigger = nil
         lastTriggerEvent = nil
+        // let SVC know the trigger situation has changed
+        if let svc = notifications {
+            svc.channelTriggerChanged(self)
+        }
     }
     
     func installRisingEdgeTrigger( triggerLevel:Voltage ) {
         sampleBuffer.trigger = RisingEdgeTrigger(capacity: CONFIG_SAMPLERATE*CONFIG_BUFFER_LENGTH, level:triggerLevel.asSample())
         sampleBuffer.trigger!.notifications = self
         lastTriggerEvent = nil
+        if let svc = notifications {
+            svc.channelTriggerChanged(self)
+        }
     }
     
     // the basic notification handler
@@ -81,13 +98,13 @@ class Channel : TriggerNotifications, DecoderNotifications {
             return nil
         }
         
-        let minimumSampleAge = UInt(visibleRangeHalfSpan.asSampleIndex())
+        let minimumSampleIndex = UInt(visibleRangeHalfSpan.asSampleIndex())
         for i in 1...events.count {
+            // we have to do a little index-flipping math to count down, because the newest timestamps are at the end of the array.
             let index = events.count - i
             let age = currentTime &- events[index]
-            if ( age > minimumSampleAge ) {
+            if ( age > minimumSampleIndex ) {
                 return SampleIndex(age).asTime()
-            } else {
             }
         }
         return nil

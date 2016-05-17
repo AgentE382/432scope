@@ -13,7 +13,7 @@ import Foundation
  
  BIG PICTURE:
  
- -the receiver opens a terminal with a POSIX file descriptor, then turns it into NSFileHandle.
+ -the transceiver opens a terminal with a POSIX file descriptor, then turns it into NSFileHandle.
  -reads are triggered by setting up the file descriptor as a dispatch source using Grand Central Dispatch.
  -reads go into a local NSMutableData buffer.
  -when a full Decoder packet length has been read, it is sent to the decoder.
@@ -235,7 +235,7 @@ class Transceiver: NSObject, NSStreamDelegate {
     
     func closeTerminal( ) throws {
         if ( isOpen == false ) {
-            throw Error.ChannelFatal("This receiver wasn't open." )
+            throw Error.ChannelFatal("This transceiver wasn't open." )
         }
         
         // kill the dispatch source.  the queue is suspended automatically as of 10.8
@@ -256,7 +256,7 @@ class Transceiver: NSObject, NSStreamDelegate {
         fileDescriptor = nil
         fileHandle = nil
         
-        print( "Receiver closed." )
+        print( "Transceiver closed." )
  
     }
 }

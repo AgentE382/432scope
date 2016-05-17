@@ -8,13 +8,179 @@
 
 import Cocoa
 
-enum DrawingModeState {
-    case Raw
-    case Triggered
-}
-
 class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageViewNotifications {
     
+    //
+    // VIEW MODE CONTROLS - the actual state enum is in ScopeViewMath.
+    //
+
+    @IBOutlet weak var radioViewModeTrigger: NSButton!
+    @IBOutlet weak var radioViewModeTimeline: NSButton!
+    @IBOutlet weak var radioViewModeStop: NSButton!
+    @IBOutlet weak var popupTriggerSelector: NSPopUpButton!
+    
+    @IBAction func viewModeSelected(sender: NSButton) {
+        switch (sender) {
+        case radioViewModeTrigger:
+            enterTriggerMode()
+            break
+        case radioViewModeTimeline:
+            enterTimelineMode()
+            break
+        case radioViewModeStop:
+            enterStopMode()
+            break
+        default:
+            print("viewModeSelected: who said that?!?")
+            break
+        }
+        updateViewModeControls()
+    }
+    
+    @IBAction func triggerSelected(sender: NSPopUpButton) {
+        let chName = popupTriggerSelector.titleOfSelectedItem!
+        var newChan:Channel? = nil
+        for ch in channels {
+            if chName == ch.name {
+                newChan = ch
+                break
+            }
+        }
+        guard newChan != nil else {
+            print("somehow you selected a trigger on a channel that doesn't exist.")
+            return
+        }
+        print("scope view mode set to Trigger(\(newChan!.name)")
+        ScopeViewMath.scopeImageViewDisplayState = .Trigger(newChan!)
+    }
+    
+    func updateViewModeControls() {
+        print("----updateViewModeControls()")
+        
+        // enumerate possible triggers
+        var selectableTriggers:[String] = []
+        for ch in channels {
+            if ( ch.hasTrigger ) {
+                selectableTriggers.append(ch.name)
+            }
+        }
+        print("there are \(selectableTriggers.count) selectable triggers.")
+        
+        // populate the trigger menu, preserving selection if possible
+        let previousSelection = popupTriggerSelector.titleOfSelectedItem
+        popupTriggerSelector.removeAllItems()
+        popupTriggerSelector.addItemsWithTitles(selectableTriggers)
+        
+        if ( selectableTriggers.count > 0 ) {
+            // there are selectable triggers
+            if previousSelection != nil {
+                // try to restore the previous selection
+                let prevSelIndex = popupTriggerSelector.indexOfItemWithTitle(previousSelection!)
+                if ( prevSelIndex != -1 ) {
+                    // it exists. restore it.
+                    popupTriggerSelector.selectItemAtIndex(prevSelIndex)
+                } else {
+                    // it doesn't exist. our selection was pulled out from under us. go to timeline mode.
+                    enterTimelineMode()
+                    updateViewModeControls()
+                    return
+                }
+            }
+            radioViewModeTrigger.enabled = true
+        } else {
+            // there are no selectable triggers, so disable trigger mode.
+            radioViewModeTrigger.enabled = false
+        }
+        
+        switch (ScopeViewMath.scopeImageViewDisplayState) {
+        case .Stop:
+            radioViewModeStop.state = NSOnState
+            popupTriggerSelector.enabled = false
+            break
+        case .Timeline:
+            radioViewModeTimeline.state = NSOnState
+            popupTriggerSelector.enabled = false
+            break
+        case .Trigger(let ch):
+            if (selectableTriggers.count == 0) {
+                // we were in trigger mode but now the valid triggers seem to have disappeared. get out.
+                enterTimelineMode()
+                updateViewModeControls()
+                return
+            }
+            radioViewModeTrigger.state = NSOnState
+            popupTriggerSelector.enabled = true
+            popupTriggerSelector.selectItemWithTitle(ch.name)
+            break
+        }
+    }
+    
+    func enterStopMode() {
+        // save current state?
+        
+        // turn off the channels
+        for ch in channels {
+            if ( ch.isChannelOn == false ) {
+                continue
+            }
+            do { try ch.channelOff() }
+            catch { print("ERROR: couldn't switch off \(ch.name)") }
+        }
+        
+        // start the drawing timer
+        startDrawingTimer()
+        
+        ScopeViewMath.scopeImageViewDisplayState = .Stop
+    }
+    
+    func enterTimelineMode() {
+        // make sure drawing timer is off
+        stopDrawingTimer()
+        
+        // make sure channels are on
+        for ch in channels {
+            if ( ch.isChannelOn == true ) {
+                continue
+            }
+            do { try ch.channelOn() }
+            catch { print("ERROR: couldn't switch on \(ch.name)") }
+        }
+        
+        ScopeViewMath.scopeImageViewDisplayState = .Timeline
+    }
+    
+    func enterTriggerMode() {
+        // make sure channels are on
+        for ch in channels {
+            if ( ch.isChannelOn == true ) {
+                continue
+            }
+            do { try ch.channelOn() }
+            catch { print("ERROR: couldn't switch on \(ch.name)" ) }
+        }
+        
+        // make sure drawing timer is off
+        stopDrawingTimer()
+        
+        // get the channel we're gonna trigger on
+        popupTriggerSelector.enabled = true
+        let selectedName = popupTriggerSelector.titleOfSelectedItem!
+        var selectedChannel:Channel? = nil
+        for ch in channels {
+            if ch.name == selectedName {
+                selectedChannel = ch
+                break
+            }
+        }
+        guard selectedChannel != nil else {
+            print("enterTriggerMode: SUPER ULTRA WTF")
+            enterStopMode()
+            return
+        }
+        
+        print("entering trigger mode on \(selectedChannel!.name)")
+        ScopeViewMath.scopeImageViewDisplayState = .Trigger(selectedChannel!)
+    }
     
     //
     // ZOOM BUTTONS
@@ -128,7 +294,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
     }
     
     // this is the notification from channel that it has completed a new packet.
-    func channelHasNewData() {
+    func channelHasNewData(sender:Channel) {
         // look through all the channels, and if they're all drawable, trigger a frame
         for ch in channels {
             if (!ch.isDrawable) {
@@ -142,14 +308,33 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
         }
     }
     
+    func channelTriggerChanged(sender: Channel) {
+        updateViewModeControls()
+    }
+    
     //
     // DRAWING / ScopeImageViewNotifications
     //
     
     func drawingWillBegin() {
-        // freeze the channels, recalc view math if necessary depending on state
+        // freeze the channels
         for ch in channels {
             ch.sampleBuffer.suspendWrites()
+        }
+        
+        switch (ScopeViewMath.scopeImageViewDisplayState) {
+        case .Stop:
+            break
+        case .Timeline:
+            break
+        case .Trigger(let ch):
+            // we need to adjust the view around the trigger on ch.
+            if let newCenter = ch.getTriggeredCenterTime(ScopeViewMath.tvRange.halfSpan) {
+                var newTVRange = ScopeViewMath.tvRange
+                newTVRange.center = newCenter
+                ScopeViewMath.update(nil, vvRange: nil, tvRange: newTVRange)
+            }
+            break
         }
     }
     
@@ -165,7 +350,22 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
     }
     
     //
-    // INIT, BASICS
+    // A FRAME RATE GENERATOR for when the data stream is stopped
+    //
+    
+    private var drawingTimer = NSTimer()
+    
+    func startDrawingTimer( ) {
+        drawingTimer.invalidate()
+        drawingTimer = NSTimer.scheduledTimerWithTimeInterval((1/CONFIG_DISPLAY_REFRESH_RATE), target: self, selector: #selector(drawFrame), userInfo: nil, repeats: true)
+    }
+    
+    func stopDrawingTimer( ) {
+        drawingTimer.invalidate()
+    }
+    
+    //
+    // INIT and BASICS
     //
     
     @IBOutlet weak var scopeImage: ScopeImageView!
@@ -190,6 +390,11 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
         
         // subscribe to the ScopeImageViewNotifications ...
         scopeImage!.notifications = self
+        
+        // initial view mode control states
+        radioViewModeTimeline.state = NSOnState
+        radioViewModeTrigger.enabled = false
+        popupTriggerSelector.enabled = false
     }
     
     deinit {

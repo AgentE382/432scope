@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="10117" systemVersion="15E65" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="10117" systemVersion="15F34" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
     <dependencies>
         <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="10117"/>
         <capability name="box content view" minToolsVersion="7.0"/>
+        <capability name="stacking Non-gravity area distributions on NSStackView" minToolsVersion="7.0" minSystemVersion="10.11"/>
     </dependencies>
     <scenes>
         <!--Application-->
@@ -952,16 +953,79 @@
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
                             </textField>
+                            <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Zmz-Ds-mho">
+                                <rect key="frame" x="78" y="11" width="71" height="56"/>
+                                <subviews>
+                                    <button translatesAutoresizingMaskIntoConstraints="NO" id="InL-7B-MnJ">
+                                        <rect key="frame" x="-1" y="39" width="66" height="18"/>
+                                        <buttonCell key="cell" type="radio" title="Trigger" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="a4d-fS-kZj">
+                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <connections>
+                                            <action selector="viewModeSelected:" target="Tua-Tv-Jhf" id="50B-Q7-img"/>
+                                        </connections>
+                                    </button>
+                                    <button translatesAutoresizingMaskIntoConstraints="NO" id="ZwW-9b-LSf">
+                                        <rect key="frame" x="-1" y="19" width="74" height="18"/>
+                                        <buttonCell key="cell" type="radio" title="Timeline" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="eD5-SG-0Wz">
+                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <connections>
+                                            <action selector="viewModeSelected:" target="Tua-Tv-Jhf" id="KRh-UA-mCd"/>
+                                        </connections>
+                                    </button>
+                                    <button translatesAutoresizingMaskIntoConstraints="NO" id="Rrj-Pz-VkQ">
+                                        <rect key="frame" x="-1" y="-1" width="51" height="18"/>
+                                        <buttonCell key="cell" type="radio" title="Stop" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="hJE-zO-8Vj">
+                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <connections>
+                                            <action selector="viewModeSelected:" target="Tua-Tv-Jhf" id="VbB-zk-yTf"/>
+                                        </connections>
+                                    </button>
+                                </subviews>
+                                <visibilityPriorities>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                    <integer value="1000"/>
+                                </visibilityPriorities>
+                                <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                    <real value="3.4028234663852886e+38"/>
+                                </customSpacing>
+                            </stackView>
+                            <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="tNp-rw-0Mc">
+                                <rect key="frame" x="152" y="47" width="76" height="22"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="70" id="R8D-Nj-Amq"/>
+                                </constraints>
+                                <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" id="veT-xi-bdw">
+                                    <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                    <font key="font" metaFont="smallSystem"/>
+                                    <menu key="menu" id="KyW-l8-4az"/>
+                                </popUpButtonCell>
+                                <connections>
+                                    <action selector="triggerSelected:" target="Tua-Tv-Jhf" id="MBa-Kc-4Ff"/>
+                                </connections>
+                            </popUpButton>
                         </subviews>
                         <constraints>
+                            <constraint firstItem="Zmz-Ds-mho" firstAttribute="centerY" secondItem="bpT-Kc-98h" secondAttribute="centerY" id="8cU-Lw-Stc"/>
                             <constraint firstItem="bpT-Kc-98h" firstAttribute="centerY" secondItem="HD7-0a-iiX" secondAttribute="centerY" id="A7e-BM-dbz"/>
                             <constraint firstItem="fjK-94-X4B" firstAttribute="top" secondItem="1fB-aX-D69" secondAttribute="bottom" constant="10" id="BrN-PU-nLi"/>
                             <constraint firstItem="bpT-Kc-98h" firstAttribute="leading" secondItem="HD7-0a-iiX" secondAttribute="trailing" constant="18" id="CsF-eh-hGq"/>
+                            <constraint firstItem="tNp-rw-0Mc" firstAttribute="baseline" secondItem="InL-7B-MnJ" secondAttribute="baseline" id="Fcs-Zc-G3B"/>
                             <constraint firstAttribute="trailing" secondItem="1fB-aX-D69" secondAttribute="trailing" constant="10" id="LUY-4u-IK4"/>
                             <constraint firstItem="1fB-aX-D69" firstAttribute="top" secondItem="wb0-Eh-qmy" secondAttribute="top" constant="10" id="M3S-xA-Lcr"/>
+                            <constraint firstItem="Zmz-Ds-mho" firstAttribute="leading" secondItem="bpT-Kc-98h" secondAttribute="trailing" constant="10" id="U4Y-Jq-hyK"/>
                             <constraint firstItem="kqI-Ek-qHZ" firstAttribute="top" secondItem="fjK-94-X4B" secondAttribute="bottom" constant="18" id="ZVs-59-Au0"/>
                             <constraint firstAttribute="bottom" secondItem="kqI-Ek-qHZ" secondAttribute="bottom" constant="10" id="aoG-tH-VZ2"/>
                             <constraint firstItem="Zya-Nb-3YV" firstAttribute="leading" secondItem="HD7-0a-iiX" secondAttribute="trailing" constant="1" id="b4Q-nh-Td3"/>
+                            <constraint firstItem="tNp-rw-0Mc" firstAttribute="leading" secondItem="InL-7B-MnJ" secondAttribute="trailing" constant="14" id="dPV-t4-HFl"/>
                             <constraint firstAttribute="bottom" secondItem="HD7-0a-iiX" secondAttribute="bottom" constant="29" id="f9A-nW-UYW"/>
                             <constraint firstItem="kqI-Ek-qHZ" firstAttribute="top" secondItem="Zya-Nb-3YV" secondAttribute="bottom" constant="1" id="hm4-v6-ppU"/>
                             <constraint firstItem="HD7-0a-iiX" firstAttribute="leading" secondItem="wb0-Eh-qmy" secondAttribute="leading" constant="10" id="kEU-zb-DSr"/>
@@ -975,6 +1039,10 @@
                         <outlet property="nsbZoomInY" destination="fjK-94-X4B" id="ee0-eG-LPR"/>
                         <outlet property="nsbZoomOutX" destination="HD7-0a-iiX" id="kUk-xj-Zom"/>
                         <outlet property="nsbZoomOutY" destination="kqI-Ek-qHZ" id="2Mr-bw-9S4"/>
+                        <outlet property="popupTriggerSelector" destination="tNp-rw-0Mc" id="qm2-8S-M0D"/>
+                        <outlet property="radioViewModeStop" destination="Rrj-Pz-VkQ" id="NPr-kg-HiJ"/>
+                        <outlet property="radioViewModeTimeline" destination="ZwW-9b-LSf" id="XPf-at-e7Z"/>
+                        <outlet property="radioViewModeTrigger" destination="InL-7B-MnJ" id="AOz-nv-xeg"/>
                         <outlet property="scopeImage" destination="1fB-aX-D69" id="Z6j-jD-TAt"/>
                     </connections>
                 </viewController>
