@@ -55,7 +55,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
     }
     
     func updateViewModeControls() {
-        print("----updateViewModeControls()")
+//        print("----updateViewModeControls()")
         
         // enumerate possible triggers
         var selectableTriggers:[String] = []

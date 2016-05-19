@@ -29,7 +29,7 @@ class ScopeImageView: NSImageView {
     //
     
     func drawSamplesPointArray(ch:Int) {
-        // one channel: ~22%, yeah, it's a little faster ...
+        // default view performance: 22%ish
         
         // set up this channel's color and translation factor
         channels[ch].traceColor.setStroke()
@@ -56,6 +56,118 @@ class ScopeImageView: NSImageView {
         
         // draw.  DO NOT closePath!!
         bezierPath.stroke()
+    }
+    
+    func drawSample_CoreGraphics(chIndex:Int) {
+        // about the same so far.
+        
+        // around 350k samples on screen, CPU usage is 100% with all the drawing code commmented out, JUST
+        // the array pull happening.  So the array pull becomes an issue at large view spans.
+        
+        // around 120k samples, CPU is 100% with the drawing code running.  So the drawing code is an issue
+        // before the array pull is.
+        
+        let ch = channels[chIndex]
+        ch.traceColor.setStroke()
+        
+        // get the samples, their count, their spacing, starting X ...
+        let samples = ch.sampleBuffer.getSampleRange(ScopeViewMath.tvRange)
+        let sampleXSpacing:CGFloat = frame.width / CGFloat(samples.count)
+        let pixelWidthInSamples:CGFloat = CGFloat(samples.count) / frame.width
+        var xPosition = frame.width
+        
+        Swift.print("samples on screen: \(samples.count)\t\t sampleXSpacing: \(sampleXSpacing)\t\tpixelWidthInSamples: \(pixelWidthInSamples)")
+
+        
+        let currentContext = NSGraphicsContext.currentContext()?.CGContext
+        let cgPath = CGPathCreateMutable()
+        
+        CGPathMoveToPoint(cgPath, nil, xPosition, samples[0].asCoordinate())
+        
+        for i in 1..<samples.count {
+            xPosition -= sampleXSpacing
+            CGPathAddLineToPoint(cgPath, nil, xPosition, samples[i].asCoordinate())
+
+        }
+
+        CGContextAddPath(currentContext, cgPath)
+        CGContextStrokePath(currentContext)
+        
+    }
+    
+    func drawSample_minmax(chIndex:Int) {
+        // about the same so far.
+        
+        // around 350k samples on screen, CPU usage is 100% with all the drawing code commmented out, JUST
+        // the array pull happening.  So the array pull becomes an issue at large view spans.
+
+        
+        let ch = channels[chIndex]
+        ch.traceColor.setStroke()
+        var fillColor = ch.traceColor.colorWithAlphaComponent(0.5)
+        fillColor.setFill()
+        
+        // get the samples, their count, their spacing, starting X ...
+        let samples = ch.sampleBuffer.getSampleRange(ScopeViewMath.tvRange)
+        let pixelWidthInSamples:CGFloat = CGFloat(samples.count) / frame.width
+        
+        Swift.print("\nsamples on screen: \(samples.count)\t\tpixelWidthInSamples: \(pixelWidthInSamples)")
+        
+        //
+        // MATH HELPERS for minmax-based drawing
+        //
+        func getLocalMinMax(startingIndex:Int, sampleCount:Int) -> (min:Sample, max:Sample) {
+            if (sampleCount <= 1) {
+                return (min:samples[startingIndex], max:samples[startingIndex])
+            }
+            var min:Sample = Sample.max
+            var max:Sample = Sample.min
+            for i in startingIndex..<(startingIndex+sampleCount) {
+                if (samples[i] < min) {
+                    min = samples[i]
+                }
+                if (samples[i] > max) {
+                    max = samples[i]
+                }
+            }
+            return (min:min, max:max)
+        }
+        
+        let currentContext = NSGraphicsContext.currentContext()?.CGContext
+        
+
+        
+        // figure out the current index frame. for now, just the first one.
+        var frameStartIndex:CGFloat = 0;
+        let frameSampleCount:Int = Int(ceil(pixelWidthInSamples))
+ 
+
+        
+        // set up the CGPath object we'll use for drawing ...
+        let cgPath = CGPathCreateMutable()
+        CGPathMoveToPoint(cgPath, nil, frame.width, samples[0].asCoordinate())
+
+         // get all the local Min/Max'es
+        var minmaxes:[(min:Sample, max:Sample)] = []
+        minmaxes.reserveCapacity(Int(ceil(frame.width)))
+        for _ in 0..<Int(frame.width) {
+            minmaxes.append(getLocalMinMax(Int(floor(frameStartIndex)), sampleCount: frameSampleCount))
+            frameStartIndex += pixelWidthInSamples
+        }
+        
+        // create a path that traces all the values
+        var currentXPixel = frame.width
+        for local in minmaxes {
+            CGPathAddLineToPoint(cgPath, nil, currentXPixel, local.max.asCoordinate())
+            currentXPixel -= 1
+        }
+        for local in minmaxes.reverse() {
+            currentXPixel += 1
+            CGPathAddLineToPoint(cgPath, nil, currentXPixel, local.min.asCoordinate())
+        }
+        
+        CGContextAddPath(currentContext, cgPath)
+        CGContextDrawPath(currentContext,.FillStroke)
     }
 
     //
@@ -114,7 +226,8 @@ class ScopeImageView: NSImageView {
         
         // curves
         for ch in 0..<channels.count {
-            drawSamplesPointArray(ch)
+      //      drawSamplesPointArray(ch)
+            drawSample_minmax(ch)
         }
         
         // let the boss know our work here is done.

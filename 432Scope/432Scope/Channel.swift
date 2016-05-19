@@ -65,7 +65,7 @@ class Channel : TriggerNotifications, DecoderNotifications {
     func triggerEventDetected( event:TriggerEvent ) {
         if let lastEvent = lastTriggerEvent {
             // there's been a prior event to compare this new one to, so we can compute frequency.
-            let period = event.timestamp - lastEvent.timestamp
+            let period = event.timestamp &- lastEvent.timestamp
             triggerFrequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
         }
         lastTriggerEvent = event
