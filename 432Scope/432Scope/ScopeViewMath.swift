@@ -21,14 +21,14 @@ class ScopeViewMath {
     
     // GETTABLE: the view data set maintained here, needed for drawing.
     static private(set) var imageSize:CGSize = CGSize()
-    static private(set) var vvRange:VoltageRange = VoltageRange(min:-20, max:20)
+    static private(set) var vvRange:VoltageRange = VoltageRange(min:-5, max:5)
     static private(set) var tvRange:TimeRange = TimeRange(newest:0.0, oldest:0.05)
     static private(set) var svRange:(min:Sample, max:Sample) = (0, CONFIG_SAMPLE_MAX_VALUE)
     static private(set) var voltageGridLines:[GridLine] = []
     static private(set) var timeGridLines:[GridLine] = []
     
     // PRIVATE: the viewable spans, used to detect whether a view has changed size or just position.
-    static private(set) var vvRangeSpan:Voltage = 40
+    static private(set) var vvRangeSpan:Voltage = 10
     static private(set) var tvRangeSpan:Time = 0.05
     
     // PRIVATE: scaling factors which must get recalculated whenever the view zooms or changes size.
@@ -42,7 +42,7 @@ class ScopeViewMath {
     static let voltageToSampleScaleFactor:Voltage = Voltage(CONFIG_SAMPLE_MAX_VALUE)/(CONFIG_AFE_VOLTAGE_RANGE.span)
     
     // PRIVATE: the grid spacing, also subject to recalculation.
-    static private var voltageGridSpacing:Voltage = 5
+    static private var voltageGridSpacing:Voltage = 2
     static private var timeGridSpacing:Time = 0.02
     
     class func initializeViewMath( ) {
@@ -98,6 +98,8 @@ class ScopeViewMath {
                 needVGridLines = true
             }
             self.vvRangeSpan = newVVRangeSpan
+            svRange.min = self.vvRange.min.asSample()
+            svRange.max = self.vvRange.max.asSample()
         }
         
         // we've been sent new viewable Time range.
@@ -146,8 +148,7 @@ class ScopeViewMath {
         timeScaleFactor = imageSize.width / tvRangeSpan
         inverseTimeScaleFactor = tvRangeSpan / Time(imageSize.width)
         
-        svRange.min = vvRange.min.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.min)
-        svRange.max = vvRange.max.asSample() //channels[ch].translateVoltageToSample(ScopeViewMath.vvRange.max)
+
         let sampleSpan = svRange.max - svRange.min
         sampleToCoordinateScaleFactor = imageSize.height / CGFloat(sampleSpan)
         
@@ -239,7 +240,7 @@ class ScopeViewMath {
             var gridCoords:[GridLine] = []
             while ( aGridTime < tvRange.oldest ) {
                 let xPos = aGridTime.asCoordinate()
-                let label = aGridTime.asString()
+                let label = (-aGridTime).asString()
                 gridCoords.append(GridLine(lineCoord:xPos, label:label))
                 aGridTime += timeGridSpacing
             }

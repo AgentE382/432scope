@@ -54,14 +54,14 @@ extension Voltage: RangeableType {
         if ( abs(self) < 0.001 ) {
             // display micro volts
             let displayNumber = self * 1000
-            return String(format:"%3.4f", displayNumber) + " \u{03BC}V"
+            return String(format:"%.3f", displayNumber) + " \u{03BC}V"
         }
         if ( abs(self) < 1 ) {
             // display millivolts
             let displayNumber = self * 1000
-            return String(format:"%3.4f", displayNumber) + " mV"
+            return String(format:"%.3f", displayNumber) + " mV"
         }
-        return String(format:"%.4f", self) + " V"
+        return String(format:"%.3f", self) + " V"
     }
     
     func asCoordinate( ) -> CGFloat {
@@ -92,14 +92,14 @@ extension Time: RangeableType, IsTime {
         if ( abs(self) < 0.001 ) {
             // display micro
             let displayNumber = self * 1000
-            return String(format:"%3.4f", displayNumber) + " \u{03BC}S"
+            return String(format:"%.3f", displayNumber) + " \u{03BC}S"
         }
         if ( abs(self) < 1 ) {
             // display milli
             let displayNumber = self * 1000
-            return String(format:"%3.4f", displayNumber) + " mS"
+            return String(format:"%.3f", displayNumber) + " mS"
         }
-        return String(format:"%.4f", self) + " S"
+        return String(format:"%.3f", self) + " S"
     }
     
     func asCoordinate( ) -> CGFloat {

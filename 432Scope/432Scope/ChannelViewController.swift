@@ -106,8 +106,10 @@ class ChannelViewController: NSViewController {
     
     @IBAction func triggerLevelChanged(sender: NSTextField) {
         if let ch = channel {
-            let level = textLevelEntryBox.objectValue as! Double
-            ch.installRisingEdgeTrigger(Voltage(level))
+            if let level = (textLevelEntryBox.objectValue as? Double) {
+                // we successfully got a Double out of the text box.
+                ch.installRisingEdgeTrigger(Voltage(level))
+            }
         }
     }
     
