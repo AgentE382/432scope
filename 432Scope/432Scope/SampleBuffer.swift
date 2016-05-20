@@ -66,6 +66,7 @@ class SampleBuffer {
     //
     // READ FUNCTIONS.  If you call these without suspending writes first, I can't help you.
     //
+    // TODO: Get rid of these.
     
     func getNewestSample() -> Sample {
         let newestSampleIndex = self.wrapIndex(self.writeIndex + 1)
@@ -93,6 +94,91 @@ class SampleBuffer {
         }
         return rval
         
+    }
+    
+    //
+    // READ-WITHOUT-COPY, and MINMAX stuff, for the new drawing trick.
+    //
+    // set a subrange depth, and then query indices on that timeframe ...
+    //
+    
+    // returns the first sample in the subrange
+    func getSampleAtTime( time:Time ) -> Sample {
+        return samples[wrapIndex(time.asSampleIndex())]
+    }
+    
+    // let's try doing this all locally in sampleBuffer, maybe the call / deref overhead is significant ...
+    func getSubRangeMinMaxes(timeRange:TimeRange, howManySubranges:Int) -> [(min:Sample, max:Sample)] {
+
+        // figure out how many samples to minmax per pixel
+        
+        // TODO: parallel-process this??
+        
+        // TODO: get this function call out of here?
+        
+        // TODO: write "getSampleAtTime" so the UI has that as a MoveTo point.
+        
+        let visibleSampleCount:Int = getSubRangeSampleCount(timeRange)
+        let subrangeWidthInSamples:CGFloat = CGFloat(visibleSampleCount) / CGFloat(howManySubranges)
+        let subrangeSampleCount:Int = Int(ceil(subrangeWidthInSamples))
+        
+        // this will track the start of the current subrange.  we start at newestSample + the beginning of the visible frame.
+        var subrangeStartIndexAsFloat = CGFloat(wrapIndex(timeRange.newest.asSampleIndex()+(1+writeIndex)))
+        var subrangeStartIndex = Int(floor(subrangeStartIndexAsFloat))
+        
+//        print("samples in time range: \(visibleSampleCount)\t\tframe width in samples: \(subrangeWidthInSamples)")
+        
+        // this subfunction will do the actual computing. just set subrangeStartIndex and subrangeSampleCount (which is already set as it was declared) ...
+        var min:Sample = Sample.max
+        var max:Sample = Sample.min
+        var realIndex:Int = 0
+        var currentSample:Sample = 0
+        var subrangeEndIndex:Int = 0
+        func getLocalMinMax() -> (min:Sample, max:Sample) {
+            // eliminate the obvious stuff ...
+            if subrangeSampleCount <= 1 {
+                let theLonelySample = samples[subrangeStartIndex]
+                return (min:theLonelySample, max:theLonelySample)
+            }
+            
+            // TODO: get wrapIndex out of this picture
+            min = Sample.max
+            max = Sample.min
+            realIndex = 0
+            currentSample = 0
+            subrangeEndIndex = subrangeStartIndex + subrangeSampleCount
+            
+            for i in subrangeStartIndex..<subrangeEndIndex {
+                realIndex = wrapIndex(i)
+                currentSample = samples[realIndex]
+                if ( currentSample < min ) {
+                    min = currentSample
+                }
+                if ( currentSample > max ) {
+                    max = currentSample
+                }
+            }
+            return (min:min, max:max)
+        }
+
+        // create the return object ...
+        var minmaxes:[(min:Sample, max:Sample)] = []
+        minmaxes.reserveCapacity(howManySubranges)
+        
+        // here we go ...
+        for _ in 0..<howManySubranges {
+            minmaxes.append(getLocalMinMax())
+            subrangeStartIndexAsFloat += subrangeWidthInSamples
+            subrangeStartIndex = Int(floor(subrangeStartIndexAsFloat))
+        }
+        
+        return minmaxes
+    }
+    
+    private func getSubRangeSampleCount(timeRange:TimeRange) -> Int {
+        let oldest = timeRange.oldest.asSampleIndex()
+        let newest = timeRange.newest.asSampleIndex()
+        return (oldest - newest) + 1
     }
 
     //

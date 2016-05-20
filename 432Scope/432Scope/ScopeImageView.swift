@@ -63,9 +63,7 @@ class ScopeImageView: NSImageView {
         
         // around 350k samples on screen, CPU usage is 100% with all the drawing code commmented out, JUST
         // the array pull happening.  So the array pull becomes an issue at large view spans.
-        
-        // around 120k samples, CPU is 100% with the drawing code running.  So the drawing code is an issue
-        // before the array pull is.
+
         
         let ch = channels[chIndex]
         ch.traceColor.setStroke()
@@ -137,11 +135,9 @@ class ScopeImageView: NSImageView {
         
 
         
-        // figure out the current index frame. for now, just the first one.
+        // these are used to keep track of where we are in the sample buffer
         var frameStartIndex:CGFloat = 0;
         let frameSampleCount:Int = Int(ceil(pixelWidthInSamples))
- 
-
         
         // set up the CGPath object we'll use for drawing ...
         let cgPath = CGPathCreateMutable()
@@ -154,7 +150,7 @@ class ScopeImageView: NSImageView {
             minmaxes.append(getLocalMinMax(Int(floor(frameStartIndex)), sampleCount: frameSampleCount))
             frameStartIndex += pixelWidthInSamples
         }
-        
+  
         // create a path that traces all the values
         var currentXPixel = frame.width
         for local in minmaxes {
@@ -169,6 +165,44 @@ class ScopeImageView: NSImageView {
         CGContextAddPath(currentContext, cgPath)
         CGContextDrawPath(currentContext,.FillStroke)
     }
+    
+    func drawSamples_minmax_inplace(chIndex:Int) {
+        // THE PURPOSE OF THIS FUNCTION is to start from the one above it, and
+        // get rid of the giant memcpy by using the new functions in SampleBuffer.
+        
+        // NOW we're getting somewhere.  up to 600k samples on screen.
+        
+        let ch = channels[chIndex]
+        
+        // get all the local minmaxes
+        let minmaxes = ch.sampleBuffer.getSubRangeMinMaxes(ScopeViewMath.tvRange, howManySubranges: Int(frame.width))
+        
+        // we can start our path now at the first sample ...
+        let cgPath = CGPathCreateMutable()
+        CGPathMoveToPoint(cgPath, nil, frame.width, CGFloat(ch.sampleBuffer.getSampleAtTime(ScopeViewMath.tvRange.newest)))
+        // trace the maxes ...
+        var currentXPixel = frame.width
+        for local in minmaxes {
+            CGPathAddLineToPoint(cgPath, nil, currentXPixel, local.max.asCoordinate())
+            currentXPixel -= 1
+        }
+        // .. now trace the mins
+        for local in minmaxes.reverse() {
+            currentXPixel += 1
+            CGPathAddLineToPoint(cgPath, nil, currentXPixel, local.min.asCoordinate())
+        }
+        
+        // set the color
+        ch.traceColor.setStroke()
+        let fillColor = ch.traceColor.colorWithAlphaComponent(0.5)
+        fillColor.setFill()
+        
+        // draw them
+        let currentContext = NSGraphicsContext.currentContext()?.CGContext
+        CGContextAddPath(currentContext, cgPath)
+        CGContextDrawPath(currentContext,.FillStroke)
+    }
+
 
     //
     // GRID LINES
@@ -226,8 +260,8 @@ class ScopeImageView: NSImageView {
         
         // curves
         for ch in 0..<channels.count {
-      //      drawSamplesPointArray(ch)
-            drawSample_minmax(ch)
+//            drawSample_minmax(ch)
+            drawSamples_minmax_inplace(ch)
         }
         
         // let the boss know our work here is done.
