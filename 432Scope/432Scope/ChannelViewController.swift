@@ -32,108 +32,75 @@ class ChannelViewController: NSViewController {
         }
     }
     
-    func disableHeaderSection( ) {
-        voltmeterDisplayState = .Disabled
-        labelVoltmeter.stringValue = "-----"
-        colorWell.enabled = false
-        labelReadingType.stringValue = "-----"
+    //
+    // NEW CONTROLS
+    //
+    
+    @IBOutlet weak var checkboxVisible: NSButton!
+    
+    @IBAction func checkboxVisibleClicked(sender: NSButton) {
     }
     
-    func enableHeaderSection( ) {
-        colorWell.enabled = true
-        if let ch = channel {
-            colorWell.color = ch.traceColor
-        }
-        voltmeterDisplayState = .Instantaneous
-        labelReadingType.stringValue = "(Instant)"
+    @IBOutlet weak var textfieldOffset: NSTextField!
+    @IBOutlet weak var textfieldScaling: NSTextField!
+    @IBOutlet weak var stepperOffset: NSStepper!
+    @IBOutlet weak var stepperScaling: NSStepper!
+    
+    
+    @IBOutlet weak var radioNoTrigger: NSButton!
+    @IBOutlet weak var radioRisingEdge: NSButton!
+    
+    @IBAction func radioTriggerSelected(sender: NSButton) {
     }
     
-    func updateHeaderSection( ) {
+    
+    @IBOutlet weak var textfieldRisingEdgeLevel: NSTextField!
+    @IBOutlet weak var stepperRisingEdgeLevel: NSStepper!
+    @IBOutlet weak var checkboxRisingEdgeLevelAuto: NSButton!
+    @IBOutlet weak var sliderRisingEdgeFilter: NSSlider!
+    
+    @IBAction func checkboxRisingEdgeLevelAutoClicked(sender: NSButton) {
+    }
+    
+    
+    
+    
+    //
+    // UPDATE CONTROLS STATE
+    //
+    
+    func updateControlState() {
+        print("---updateControlState")
+    }
+    
+    //
+    // UPDATE READINGS
+    //
+
+    func updateReadings( ) {
         switch (voltmeterDisplayState) {
         case .Instantaneous:
             labelVoltmeter.stringValue = channel!.sampleBuffer.getNewestSample().asVoltage().asString()
             break
         case .PeakToPeak:
-            let ptp = channel!.triggerPeriodVoltageRange.span
-            labelVoltmeter.stringValue = ptp.asString()
+            labelVoltmeter.stringValue = "fixme."
             break
         default:
             break
         }
-    }
-    
-    //
-    // TRIGGER SECTION
-    //
-    
-    enum FrequencyDisplayState {
-        case Disabled
-        case Enabled
-    }
-    var frequencyDisplayState:FrequencyDisplayState = .Disabled
-    
-    @IBOutlet weak var popupTriggerType: NSPopUpButton!
-    @IBOutlet weak var textLevelEntryBox: NSTextField!
-    @IBOutlet weak var labelFrequencyDisplay: NSTextField!
-    
-    @IBAction func triggerTypeSelected(sender: NSPopUpButton) {
-        if let selection = sender.titleOfSelectedItem {
-            switch ( selection ) {
-                
-                case "None":
-                    channel!.installNoTrigger()
-                    textLevelEntryBox.enabled = false
-                    frequencyDisplayState = .Disabled
-                    voltmeterDisplayState = .Instantaneous
-                    labelFrequencyDisplay.stringValue = "-----"
-                    labelReadingType.stringValue = "(Instant)"
-                    break;
-                
-                case "Rising Edge":
-                    textLevelEntryBox.enabled = true
-                    let level = (textLevelEntryBox.objectValue as! Double)
-                    channel!.installRisingEdgeTrigger(Voltage(level))
-                    frequencyDisplayState = .Enabled
-                    voltmeterDisplayState = .PeakToPeak
-                    labelReadingType.stringValue = "(Peak-to-Peak)"
-                    break;
-                
-            default:
-                break;
-            }
-        }
-    }
-    
-    @IBAction func triggerLevelChanged(sender: NSTextField) {
-        if let ch = channel {
-            if let level = (textLevelEntryBox.objectValue as? Double) {
-                // we successfully got a Double out of the text box.
-                ch.installRisingEdgeTrigger(Voltage(level))
-            }
-        }
-    }
-    
-    func enableTriggerSection( ) {
-        popupTriggerType.enabled = true
-    }
-    
-    func disableTriggerSection( ) {
-        popupTriggerType.enabled = false
-        popupTriggerType.selectItemWithTitle("None")
-        textLevelEntryBox.objectValue = Double(0.0)
-        textLevelEntryBox.enabled = false
-        labelFrequencyDisplay.stringValue = "-----"
-        frequencyDisplayState = .Disabled
     }
 
-    func updateTriggerSection( ) {
-        switch (frequencyDisplayState) {
-        case .Enabled:
-            labelFrequencyDisplay.stringValue = channel!.triggerFrequency.asString()
-            break
-        default:
-            break
-        }
+    // The timer for that ...
+    var updateReadingsTimer:NSTimer = NSTimer()
+
+    func startUpdateReadingsTimer( ) {
+        // 10 FPS for now.
+        updateReadingsTimer = NSTimer.scheduledTimerWithTimeInterval(0.1, target: self, selector: #selector(updateReadings), userInfo: nil, repeats: true)
+        updateReadingsTimer.tolerance = 0.08
+    }
+    
+    func stopUpdateReadingsTimer( ) {
+        updateReadingsTimer.invalidate()
     }
     
     //
@@ -173,42 +140,42 @@ class ChannelViewController: NSViewController {
         if ( channel!.isChannelOn == true ) {
             try channel!.channelOff()
         }
+        
+        channel = nil
+    }
+    
+    // these are master start/stop for the entire UI.  Everything more granular than that is in updateControls or updateReadings.
+    
+    func enableUI( ) {
 
+        // HEADER SECTION
+
+        colorWell.enabled = true
+        if let ch = channel {
+            colorWell.color = ch.traceColor
+        }
+        voltmeterDisplayState = .Instantaneous
+        labelReadingType.stringValue = "(Instant)"
+        
+        // done. start the timer.
+        startUpdateReadingsTimer()
+    }
+    
+    func disableUI( ) {
+        stopUpdateReadingsTimer()
+        
+        // HEADER SECTION - voltmeter, frequency meter, color picker, that stuff
+        
+        voltmeterDisplayState = .Disabled
+        labelVoltmeter.stringValue = "-----"
+        colorWell.enabled = false
+        labelReadingType.stringValue = "-----"
     }
     
     //
     // MASTER - stuff that applies to the entire view
     //
-    
-    var uiTimer:NSTimer = NSTimer()
-    
-    func updateDisplay( ) {
-        updateHeaderSection()
-        updateTriggerSection()
-    }
 
-    func startFrameTimer( ) {
-        // 5 FPS for now
-        uiTimer = NSTimer.scheduledTimerWithTimeInterval(0.2, target: self, selector: #selector(updateDisplay), userInfo: nil, repeats: true)
-        uiTimer.tolerance = 0.08
-    }
-    
-    func stopFrameTimer( ) {
-        uiTimer.invalidate()
-    }
-    
-    func enableUI( ) {
-        enableHeaderSection()
-        enableTriggerSection()
-        startFrameTimer()
-    }
-    
-    func disableUI( ) {
-        stopFrameTimer()
-        disableHeaderSection()
-        disableTriggerSection()
-    }
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         print("----ChannelViewController.channelDidLoad")

@@ -41,49 +41,19 @@ class Channel : TriggerNotifications, DecoderNotifications {
             return true
         }
     }
-
-    // trigger installers
-    func installNoTrigger() {
-        sampleBuffer.trigger = nil
-        lastTriggerEvent = nil
-        // let SVC know the trigger situation has changed
-        if let svc = notifications {
-            svc.channelTriggerChanged(self)
-        }
-    }
     
-    func installRisingEdgeTrigger( triggerLevel:Voltage ) {
-        sampleBuffer.trigger = RisingEdgeTrigger(capacity: CONFIG_SAMPLERATE*CONFIG_BUFFER_LENGTH, level:triggerLevel.asSample())
-        sampleBuffer.trigger!.notifications = self
-        lastTriggerEvent = nil
-        if let svc = notifications {
-            svc.channelTriggerChanged(self)
-        }
+    func installTrigger( newTrigger:Trigger? ) {
+        print("----Channel.installTrigger")
     }
     
     // the basic notification handler
     func triggerEventDetected( event:TriggerEvent ) {
-        if let lastEvent = lastTriggerEvent {
-            // there's been a prior event to compare this new one to, so we can compute frequency.
-            let period = event.timestamp &- lastEvent.timestamp
-            triggerFrequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
-        }
-        lastTriggerEvent = event
+        print("----Channel.triggerEventDetected")
+        newestTriggerEvent = event
     }
     
     // compute interesting things based on trigger events
-    private(set) var lastTriggerEvent:TriggerEvent? = nil
-    
-    var triggerFrequency:Frequency = 0.0
-    
-    var triggerPeriodVoltageRange:VoltageRange {
-        get {
-            guard lastTriggerEvent != nil else {
-                return VoltageRange(min:0, max:0)
-            }
-            return VoltageRange(min: lastTriggerEvent!.periodLowestSample.asVoltage(), max: lastTriggerEvent!.periodHighestSample.asVoltage())
-        }
-    }
+    private(set) var newestTriggerEvent:TriggerEvent? = nil
     
     func getTriggeredCenterTime( visibleRangeHalfSpan:Time ) -> Time? {
         // if there's actually no trigger attached, this isn't gonna work ...
