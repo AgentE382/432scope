@@ -64,9 +64,7 @@ class SampleBuffer {
     }
 
     //
-    // READ FUNCTIONS.  If you call these without suspending writes first, I can't help you.
-    //
-    // TODO: Get rid of these.
+    // READ FUNCTIONS.  These do NOT suspend writes so just be aware the array could be running around under you.
     
     func getNewestSample() -> Sample {
         let newestSampleIndex = self.wrapIndex(self.writeIndex + 1)
@@ -77,13 +75,15 @@ class SampleBuffer {
         
         var rval:Array<Sample> = []
         let indexRange:SampleIndexRange = (newest:timeRange.newest.asSampleIndex(), oldest:timeRange.oldest.asSampleIndex())
-
         if ((indexRange.oldest - indexRange.newest) == 0) {
             return rval
         }
         
-        let safeNewest = self.wrapIndex(indexRange.newest + self.writeIndex + 1)
-        let safeOldest = self.wrapIndex(indexRange.oldest + self.writeIndex + 1)
+        // lock this here in a const in case there are sample writes happening in another thread
+        let lockedWriteIndex = self.writeIndex
+        
+        let safeNewest = self.wrapIndex(indexRange.newest + lockedWriteIndex + 1)
+        let safeOldest = self.wrapIndex(indexRange.oldest + lockedWriteIndex + 1)
         if ( safeNewest < safeOldest ) {
             // contiguous
             rval = Array<Sample>(self.samples[safeNewest...safeOldest])

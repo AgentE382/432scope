@@ -29,6 +29,7 @@ typealias Frequency = Float // this HAS to be different from Double because swif
 
 typealias VoltageRange = FloatingRangeType<Voltage>
 typealias TimeRange = FloatingRangeType<Time>
+typealias SampleRange = FloatingRangeType<Sample>
 
 // these are array indices
 typealias SampleIndexRange = (newest:Int, oldest:Int)
@@ -44,7 +45,20 @@ extension Sample: RangeableType {
     }
     
     func asCoordinate( ) -> CGFloat {
-        return ScopeViewMath.sampleToCoordinateScaleFactor * CGFloat(self - ScopeViewMath.svRange.min)
+        if (ScopeViewMath.sampleDisplayTransform == nil) {
+            return ScopeViewMath.sampleToCoordinateScaleFactor * CGFloat(self - ScopeViewMath.svRange.min)
+        }
+        var floatSelf = CGFloat(self)
+        // the scale-about-zero...
+        floatSelf -= ScopeViewMath.sampleDisplayTransform!.zeroVolts
+        floatSelf *= ScopeViewMath.sampleDisplayTransform!.scaling
+        floatSelf += ScopeViewMath.sampleDisplayTransform!.zeroVolts
+        // the display offset
+        floatSelf += ScopeViewMath.sampleDisplayTransform!.offset
+        // the normal transform ...
+        floatSelf -= CGFloat(ScopeViewMath.svRange.min)
+        floatSelf *= ScopeViewMath.sampleToCoordinateScaleFactor
+        return floatSelf
     }
 }
 
@@ -72,6 +86,11 @@ extension Voltage: RangeableType {
     
     func asSample( ) -> Sample {
         return Sample( (self - CONFIG_AFE_VOLTAGE_RANGE.min) * ScopeViewMath.voltageToSampleScaleFactor)
+    }
+    
+    // if a sample moves by (self) volts, how far does its (Sample) value move?
+    func asSampleDiff( ) -> Sample {
+        return (self.asSample() - Voltage(0.0).asSample())
     }
     
     // if something moves by (self) volts, how many pixels does it move by?  ask this function.
@@ -117,7 +136,7 @@ extension Time: RangeableType, IsTime {
     }
 }
 
-extension Frequency {
+extension Frequency: RangeableType {
     func asString(  ) ->String {
         return String(format:"%.2f", self) + " Hz"
     }
@@ -153,6 +172,7 @@ protocol RangeableType:Comparable {
     func +(lhs: Self, rhs: Self) -> Self
     func -(lhs: Self, rhs: Self) -> Self
     func /(lhs: Self, rhs: Self) -> Self
+    func *(lhs: Self, rhs: Self) -> Self
     init(_ v: Int)
 }
 

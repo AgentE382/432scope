@@ -8,6 +8,21 @@
 
 import Foundation
 
+//
+// How to make a new type of trigger:
+//
+// - derive from Trigger class.
+// - make an initializer.
+//      - it must call super.init(capacity:Int) at the end
+// - override processSample.
+//      - if processSample gets an edge event, call super.eventHappened.
+//      - if no event, call super.eventDidNotHappen.
+
+//
+// BASE CLASS
+//
+
+// This notification gets sent out when an event is detected.  Base class handles this.
 
 protocol TriggerNotifications {
     func triggerEventDetected( event:TriggerEvent )
@@ -15,7 +30,7 @@ protocol TriggerNotifications {
 
 class Trigger {
     
-    var notifications:TriggerNotifications?
+    var notifications:TriggerNotifications
     
     //
     // EVENT TIMEKEEPING ARRAY
@@ -25,8 +40,18 @@ class Trigger {
     private(set) var eventTimestamps:[UInt] = []
     private var capacity:Int = 0 // this is really the age of the oldest timestamp we need to preserve.
     
-    private func recordTimestamp() {
-        eventTimestamps.append(currentTimestamp)
+    private var lastEventTimestamp:UInt? {
+        get {
+            let eventCount = eventTimestamps.count
+            if ( eventCount == 0 ) {
+                return nil
+            }
+            return eventTimestamps[eventCount-1]
+        }
+    }
+    
+    private func recordTimestamp(latencyCorrection:UInt) {
+        eventTimestamps.append(currentTimestamp &- latencyCorrection)
         
         // while we're at it, cull any really old ones.
         for _ in 0..<eventTimestamps.count {
@@ -63,10 +88,19 @@ class Trigger {
     //
     
     // derived classes should call this when they detect an event to store it in the timekeeping array.
-    private func eventHappened(newSample:Sample) {
+    private func eventHappened(newSample:Sample, triggerLatency:UInt) {
         updateMinMax(newSample)
-        recordTimestamp()
-        notifications!.triggerEventDetected(TriggerEvent(timestamp: currentTimestamp, periodLowestSample: periodMin, periodHighestSample: periodMax))
+        var samplesSinceLastEvent:Int? = nil
+        if ( lastEventTimestamp != nil ) {
+            samplesSinceLastEvent = Int((currentTimestamp &- triggerLatency) &- lastEventTimestamp!)
+        }
+        notifications.triggerEventDetected( TriggerEvent(
+                timestamp: currentTimestamp &- triggerLatency,
+                periodLowestSample: periodMin,
+                periodHighestSample: periodMax,
+                samplesSinceLastEvent: samplesSinceLastEvent
+            ))
+        recordTimestamp(triggerLatency)
         resetMinMax()
         currentTimestamp = currentTimestamp &+ 1
     }
@@ -83,13 +117,9 @@ class Trigger {
     // INIT AND BASE CLASS FUNCTIONS TO OVERRIDE
     //
     
-    init() {
-        print( "---trigger.init DON'T DO THIS" )
-    }
-    
-    init( capacity:Int ) {
-        print( "---trigger.init capacity:\(capacity)" )
+    init( capacity:Int, notifications:TriggerNotifications ) {
         self.capacity = capacity
+        self.notifications = notifications
     }
     
     func processSample( sample:Sample ) {
@@ -98,87 +128,116 @@ class Trigger {
     }
 }
 
-
-
-class RisingEdgeTrigger: Trigger {
-    var level:Int
+struct TriggerEvent {
     
-    init( capacity:Int, level:Int ) {
-        print("---risingEdgeTrigger capacity:\(capacity) level:\(level)")
-        self.level = level
-        super.init(capacity: capacity)
+    // A trigger class must set these before sending the event along
+    var timestamp:UInt
+    var periodLowestSample:Sample
+    var periodHighestSample:Sample
+    var samplesSinceLastEvent:Int?
+    
+    var periodVoltageRange:VoltageRange {
+        get {
+            return VoltageRange(min:periodLowestSample.asVoltage(), max:periodHighestSample.asVoltage())
+        }
     }
     
-    //
-    // event detection FSM
-    //
+    init() {
+        timestamp = 0
+        periodLowestSample = 0
+        periodHighestSample = 0
+        samplesSinceLastEvent = nil
+    }
+    
+    init( timestamp:UInt, periodLowestSample:Sample, periodHighestSample:Sample, samplesSinceLastEvent:Int? ) {
+        self.timestamp = timestamp
+        self.periodLowestSample = periodLowestSample
+        self.periodHighestSample = periodHighestSample
+        self.samplesSinceLastEvent = samplesSinceLastEvent
+    }
+}
+
+//
+// DERIVED CLASSES (the actual triggers)
+//
+
+// This one is a rising edge filter with an averaging filter, optional auto-level
+
+class RisingEdgeTrigger: Trigger {
+    
+    private(set) var triggerLevel:Sample
+    private(set) var autoLevel:Bool
+    private var sampleFilter:FastSampleAveragingFilter
+    private var autoLevelFilter:AveragingFilter<Sample>
+    
+    init(triggerLevel:Voltage, autoLevel:Bool, filterDepth:UInt, notifications:TriggerNotifications) {
+        self.triggerLevel = triggerLevel.asSample()
+        self.autoLevel = autoLevel
+        self.sampleFilter = FastSampleAveragingFilter(depthExponent: filterDepth, initialAverage: Voltage(0.0).asSample())
+        self.autoLevelFilter = AveragingFilter<Sample>(bufferSize: Int(exp2(Double(filterDepth))),
+            startingAverage: triggerLevel.asSample())
+        // setting capacity to CONFIG_SAMPLERATE means we'll only watch the latest second of events.  this will be a problem for <1Hz signals.
+        super.init(capacity: CONFIG_SAMPLERATE, notifications: notifications)
+    }
     
     enum RisingEdgeTriggerState {
         case ExpectingRise
         case ExpectingFall
     }
     
-    var triggerState:RisingEdgeTriggerState = .ExpectingRise
+    private var triggerState:RisingEdgeTriggerState = .ExpectingFall
     
-    override func processSample(newSample:Sample) {
-        var nextState:RisingEdgeTriggerState = .ExpectingRise
-        var outcomeOfTest:Int = 0
+    override func processSample(sample: Sample) {
         
-        // we have to cast it because level is an Int.  Level is an int because it may be desirable to set a trigger level outside the channel's range.
+        // filtering
+        let newValue = sampleFilter.filter(sample)
         
-        switch (triggerState) {
-            
-        case .ExpectingRise: // voltage has been under level and we're waiting for it to go up
-            if ( newSample < level ) {
-                // it's not up yet.
+        // edge detection FSM
+        var nextState:RisingEdgeTriggerState
+        var edgeTestResult:Bool = false
+        
+        switch triggerState {
+        case .ExpectingRise:
+            if (newValue > triggerLevel ) {
+                // got one. that's an event.
+                edgeTestResult = true
+                nextState = .ExpectingFall
+            } else {
+                // still waiting.
                 nextState = .ExpectingRise
             }
-            if ( newSample >= level ) {
-                // got one!
-                nextState = .ExpectingFall
-                outcomeOfTest = 1
-            }
             break
-            
         case .ExpectingFall:
-            if ( newSample < level ) {
-                // it fell. reset ...
+            if ( newValue < triggerLevel ) {
+                // we're back below the level.
                 nextState = .ExpectingRise
-            }
-            if ( newSample >= level ) {
-                // still high
+            } else {
+                // still above the threshold.
                 nextState = .ExpectingFall
             }
             break
         }
         
-        // store the result, advance the state
-        triggerState = nextState
-        
-        if ( outcomeOfTest == 1 ) {
-            // we detected an event. send it off and reset
-            eventHappened(newSample)
+        if edgeTestResult {
+            // okay we got a trigger event.  figure out the filter latency ...
+            var latency:UInt = 0
+            for i in 0..<sampleFilter.bufferSize {
+                if (sampleFilter.getItemByAge(Int(i)) < triggerLevel) {
+                    latency = i
+                    break
+                }
+            }
+            // auto-level adjustment for the next period ...
+            if ( autoLevel ) {
+                triggerLevel = autoLevelFilter.filter((super.periodMax + super.periodMin) / 2)
+            }
+            super.eventHappened(sample, triggerLatency: latency)
         } else {
-            eventDidNotHappen(newSample)
+            super.eventDidNotHappen(sample)
         }
-    }
-}
-
-
-struct TriggerEvent {
-    var timestamp:UInt
-    var periodLowestSample:Sample
-    var periodHighestSample:Sample
-    
-    init() {
-        timestamp = 0
-        periodLowestSample = 0
-        periodHighestSample = 0
+        
+        triggerState = nextState
     }
     
-    init( timestamp:UInt, periodLowestSample:Sample, periodHighestSample:Sample ) {
-        self.timestamp = timestamp
-        self.periodLowestSample = periodLowestSample
-        self.periodHighestSample = periodHighestSample
-    }
 }
+

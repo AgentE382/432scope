@@ -23,7 +23,7 @@ class ScopeViewMath {
     static private(set) var imageSize:CGSize = CGSize()
     static private(set) var vvRange:VoltageRange = VoltageRange(min:-5, max:5)
     static private(set) var tvRange:TimeRange = TimeRange(newest:0.0, oldest:0.05)
-    static private(set) var svRange:(min:Sample, max:Sample) = (0, CONFIG_SAMPLE_MAX_VALUE)
+    static private(set) var svRange:SampleRange = SampleRange(min:Sample(0), max:CONFIG_SAMPLE_MAX_VALUE)
     static private(set) var voltageGridLines:[GridLine] = []
     static private(set) var timeGridLines:[GridLine] = []
     
@@ -149,9 +149,30 @@ class ScopeViewMath {
         inverseTimeScaleFactor = tvRangeSpan / Time(imageSize.width)
         
 
-        let sampleSpan = svRange.max - svRange.min
-        sampleToCoordinateScaleFactor = imageSize.height / CGFloat(sampleSpan)
-        
+        sampleToCoordinateScaleFactor = imageSize.height / CGFloat(svRange.span)
+    }
+    
+    //
+    // TEMPORARY SAMPLE TRANSFORM STUFF, for scaling individual channels differently.. caller, YOU MUST REVERT AFTER YOU"RE DONE!
+    //
+    
+    static private(set) var sampleDisplayTransform:(zeroVolts:CGFloat, offset:CGFloat, scaling:CGFloat)? = nil
+    
+    class func setSampleDisplayTransform(offset:Voltage, scaling:Double) {
+        if ((offset == 0) && (scaling == 1.0)) {
+            sampleDisplayTransform = nil
+        } else {
+            sampleDisplayTransform = (
+                zeroVolts: CGFloat(Voltage(0.0).asSample()),
+                offset: CGFloat(offset.asSampleDiff()),
+                scaling: CGFloat(scaling)
+            )
+            return
+        }
+    }
+    
+    class func clearSampleDisplayTransform() {
+        sampleDisplayTransform = nil
     }
     
     //
@@ -268,7 +289,7 @@ class ScopeViewMath {
                 aGridTime += timeGridSpacing
             }
             // add t=0 line
-            gridCoords.append(GridLine(lineCoord: centerTime.asCoordinate(), label: Time(0.0).asString(), color: NSColor(calibratedWhite: 1.0, alpha: 1.0)))
+            gridCoords.append(GridLine(lineCoord: centerTime.asCoordinate(), label: Time(0.0).asString(), color: CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR))
             
             timeGridLines = gridCoords
             break
@@ -300,8 +321,87 @@ class ScopeViewMath {
         }
         voltageGridLines = gridCoords
     }
+    
+    //
+    // SELECTION RECTANGLE STUFF
+    //
+    
+    typealias TVCoord = (t:Time, v:Voltage)
+    static private var selectionStartPoint:TVCoord? = nil
+    static private var selectionEndPoint:TVCoord? = nil
+    
+    class func updateSelection(point:CGPoint?) {
+        if let cgPoint = point {
+            // we've been given a new point.  first let's convert it to (t,v)
+            var newPoint:TVCoord = (t:0, v:0)
+            switch scopeImageViewDisplayState {
+            case .Stop, .Timeline:
+                newPoint.t = -cgPoint.x.asTime()
+                newPoint.v = cgPoint.y.asVoltage()
+                break
+            case .Trigger:
+                let tCorr = imageSize.width.asTimeDiff() / 2
+                newPoint.t = cgPoint.x.asTimeDiff() - tCorr
+                newPoint.v = cgPoint.y.asVoltage()
+                break
+            }
+            
+            if selectionStartPoint == nil {
+                // it's a starting point for a new selection.
+                selectionStartPoint = newPoint
+            } else {
+                // it's a drag
+                selectionEndPoint = newPoint
+            }
+            
+        } else {
+            // we were passed nil, so clear it all.
+            selectionStartPoint = nil
+            selectionEndPoint = nil
+        }
+    }
+    
+    static var selectionRect:CGRect? {
+        get {
+            if selectionEndPoint == nil {
+                return nil
+            }
+            
+            var origin = CGPoint()
+            var size = CGSize()
+            
+            switch scopeImageViewDisplayState {
+            case .Stop, .Timeline:
+                origin.x = (-selectionStartPoint!.t).asCoordinate()
+                origin.y = selectionStartPoint!.v.asCoordinate()
+                size.width = (-selectionEndPoint!.t).asCoordinate() - origin.x
+                size.height = selectionEndPoint!.v.asCoordinate() - origin.y
+                break
+                
+            case .Trigger:
+                let tCorr = imageSize.width / 2
+                origin.x = selectionStartPoint!.t.asGraphicsDiff() + tCorr
+                origin.y = selectionStartPoint!.v.asCoordinate()
+                size.width = (selectionEndPoint!.t.asGraphicsDiff() + tCorr) - origin.x
+                size.height = selectionEndPoint!.v.asCoordinate() - origin.y
+                break
+            }
+            
+            let rect = CGRect(origin:origin, size:size)
+            return rect
+        }
+    }
+    
+    class func getSelectionRanges() -> (tRange:TimeRange, vRange:VoltageRange)? {
+        if ( selectionEndPoint == nil ) {
+            // there isn't a valid selection so we can't return ranges.
+            return nil
+        }
+        let tRange = TimeRange(min: selectionStartPoint!.t, max: selectionEndPoint!.t)
+        let vRange = VoltageRange(min: selectionStartPoint!.v, max: selectionEndPoint!.v)
+        return (tRange, vRange)
+    }
 }
-
 
 struct GridLine {
     

@@ -10,9 +10,11 @@ import Foundation
 import Cocoa
 
 protocol ChannelNotifications {
-    func channelHasNewData(sender:Channel)
-    func channelTriggerChanged(sender:Channel)
+    func channelHasNewData(sender:Channel) // new samples have been processed and stored in this channel's buffer
+    func channelTriggerChanged(sender:Channel) // this channel's trigger setup has changed
 }
+
+typealias ChannelDisplayProperties = (traceColor:NSColor, visible:Bool, offset:Voltage, scaling:Double)
 
 class Channel : TriggerNotifications, DecoderNotifications {
     
@@ -28,6 +30,7 @@ class Channel : TriggerNotifications, DecoderNotifications {
             svc.channelHasNewData(self)
         }
     }
+
     
     //
     // TRIGGERING - once a trigger is installed, triggerEventDetected gets called when there's an event.
@@ -44,11 +47,23 @@ class Channel : TriggerNotifications, DecoderNotifications {
     
     func installTrigger( newTrigger:Trigger? ) {
         print("----Channel.installTrigger")
+        
+        // whatever the deal is, values stored in these are no longer relevant.
+        newestTriggerEvent = nil
+        
+        if newTrigger == nil {
+            // remove the trigger.
+            sampleBuffer.trigger = nil
+        } else {
+            // install the new one
+            sampleBuffer.trigger = newTrigger
+        }
+        
+        notifications?.channelTriggerChanged(self)
     }
     
     // the basic notification handler
     func triggerEventDetected( event:TriggerEvent ) {
-        print("----Channel.triggerEventDetected")
         newestTriggerEvent = event
     }
     
@@ -81,14 +96,22 @@ class Channel : TriggerNotifications, DecoderNotifications {
     }
     
     //
+    // DISPLAY PROPERTIES
+    //
+    
+    var displayProperties:ChannelDisplayProperties = (
+        traceColor: TraceColorGenerator.getColor(),
+        visible: true,
+        offset: 0.0,
+        scaling: 1.0
+    )
+    
+    //
     // FUNDAMENTALS
     //
     
-    // this sends out "drawable" notifications
+    // this sends out "drawable" notifications when a new data packet is through processing.
     var notifications:ChannelNotifications? = nil
-    
-    // display parameters
-    var traceColor = TraceColorGenerator.getColor()
     
     // the signal chain
     private(set) var transceiver:Transceiver? = nil

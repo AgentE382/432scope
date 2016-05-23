@@ -11,6 +11,71 @@ import Cocoa
 class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageViewNotifications {
     
     //
+    // SELECTION BOX
+    //
+    
+    @IBOutlet weak var labelSelectionX: NSTextField!
+    @IBOutlet weak var labelSelectionY: NSTextField!
+    @IBOutlet weak var labelSelectionDelta: NSTextField!
+    
+    func updateSelectionLabels() {
+        if let sel = ScopeViewMath.getSelectionRanges() {
+            
+            labelSelectionX.stringValue = "x: (\(sel.tRange.min.asString()), \(sel.tRange.max.asString()))"
+            labelSelectionY.stringValue = "y: (\(sel.vRange.min.asString()), \(sel.vRange.max.asString()))"
+            let deltaX = sel.tRange.span
+            let deltaY = sel.vRange.span
+            let f = Frequency(1 / deltaX)
+            labelSelectionDelta.stringValue = "Δx: \(deltaX.asString()), Δy: \(deltaY.asString()), 1/Δx: \(f.asString())"
+            
+        } else {
+            labelSelectionX.stringValue = "x: (---.--- -, ---.--- -)"
+            labelSelectionY.stringValue = "y: (---.--- -, ---.--- -)"
+            labelSelectionDelta.stringValue = "Δx: ---.--- -, Δy: ---.--- -, 1/Δx: ---.--- -"
+        }
+    }
+    
+    //
+    // MOUSE DRAG EVENTS: used for drawing selection rectangles to measure stuff.
+    //
+    
+    private var mouseWentDownHere:CGPoint? = nil
+    override func mouseDown( theEvent:NSEvent ) {
+        let pointInViewCoords:NSPoint = scopeImage.convertPoint(theEvent.locationInWindow, fromView: nil)
+        
+        // is the mouse location in the trace view? if not, we don't care, so bail.
+        if ( (pointInViewCoords.x < 0) || (pointInViewCoords.y < 0) || (pointInViewCoords.x > scopeImage.frame.width) || (pointInViewCoords.y > scopeImage.frame.height) ) {
+            return
+        }
+        
+        ScopeViewMath.updateSelection(nil)
+        updateSelectionLabels()
+        mouseWentDownHere = pointInViewCoords
+    }
+    
+    override func mouseDragged( theEvent:NSEvent ) {
+        let pointInViewCoords:NSPoint = scopeImage.convertPoint(theEvent.locationInWindow, fromView: nil)
+        
+        // did this drag event start here?  if not, we don't care
+        if ( mouseWentDownHere == nil ) {
+            return
+        }
+        
+        ScopeViewMath.updateSelection(pointInViewCoords)
+        updateSelectionLabels()
+    }
+    
+    override func mouseUp( theEvent:NSEvent ) {
+        let pointInViewCoords:NSPoint = scopeImage.convertPoint(theEvent.locationInWindow, fromView: nil)
+        if ( pointInViewCoords == mouseWentDownHere )  {
+            // it was a click, not a drag. clear the selection.
+            ScopeViewMath.updateSelection(nil)
+            updateSelectionLabels()
+        }
+        mouseWentDownHere = nil
+    }
+    
+    //
     // VIEW MODE CONTROLS - the actual state enum is in ScopeViewMath.
     //
 
@@ -34,6 +99,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
             print("viewModeSelected: who said that?!?")
             break
         }
+        ScopeViewMath.updateSelection(nil)
         updateViewModeControls()
     }
     
@@ -248,22 +314,6 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
     }
     
     //
-    // MOUSE DRAG EVENTS: not sure what to do with these yet.
-    //
-    
-    var lastMouseDragPoint:NSPoint? = nil
-    override func mouseDragged( theEvent:NSEvent ) {
-    }
-    
-    override func mouseDown( theEvent:NSEvent ) {
-        lastMouseDragPoint = NSEvent.mouseLocation()
-    }
-    
-    override func mouseUp( theEvent:NSEvent ) {
-        lastMouseDragPoint = nil
-    }
-    
-    //
     // ZOOM CALCULATORS
     //
     
@@ -400,6 +450,9 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
         radioViewModeTimeline.state = NSOnState
         radioViewModeTrigger.enabled = false
         popupTriggerSelector.enabled = false
+        
+        // initial selection info
+        updateSelectionLabels()
     }
     
     deinit {
