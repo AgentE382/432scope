@@ -10,5 +10,5 @@
 	<linkerCommandFile value="msp432p401r.cmd"/>
 	<rts value="libc.a"/>
 	<createSlaveProjects value=""/>
-	<templateProperties value="id=com.ti.common.project.core.emptyProjectWithMainTemplate_msp432,"/>
+	<templateProperties value="id=com.ti.common.project.core.emptyProjectTemplate,"/>
 </projectOptions>

@@ -15,6 +15,7 @@
 		5F1E40C81CD7FE49007BAC7C /* _32ScopeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1E40C71CD7FE49007BAC7C /* _32ScopeUITests.swift */; };
 		5F1E40EC1CD81386007BAC7C /* ChannelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1E40EB1CD81386007BAC7C /* ChannelViewController.swift */; };
 		5F1E40EE1CD81C5A007BAC7C /* ScopeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1E40ED1CD81C5A007BAC7C /* ScopeViewController.swift */; };
+		5F230D6D1CF2013E00162C0D /* AveragingFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F230D6C1CF2013E00162C0D /* AveragingFilter.swift */; };
 		5F3B54081CDA6C3D008F1D88 /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3B53FF1CDA6C3D008F1D88 /* Channel.swift */; };
 		5F3B54091CDA6C3D008F1D88 /* config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3B54001CDA6C3D008F1D88 /* config.swift */; };
 		5F3B540A1CDA6C3D008F1D88 /* Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3B54011CDA6C3D008F1D88 /* Decoder.swift */; };
@@ -62,6 +63,7 @@
 		5F1E40D61CD7FE97007BAC7C /* 432Scope-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "432Scope-Bridging-Header.h"; sourceTree = "<group>"; };
 		5F1E40EB1CD81386007BAC7C /* ChannelViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChannelViewController.swift; sourceTree = "<group>"; };
 		5F1E40ED1CD81C5A007BAC7C /* ScopeViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScopeViewController.swift; sourceTree = "<group>"; };
+		5F230D6C1CF2013E00162C0D /* AveragingFilter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AveragingFilter.swift; sourceTree = "<group>"; };
 		5F3B53FF1CDA6C3D008F1D88 /* Channel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Channel.swift; sourceTree = "<group>"; };
 		5F3B54001CDA6C3D008F1D88 /* config.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = config.swift; sourceTree = "<group>"; };
 		5F3B54011CDA6C3D008F1D88 /* Decoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Decoder.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				5F78EDA61CE2816B00827338 /* Types.swift */,
 				5F3B54061CDA6C3D008F1D88 /* USBScanner.swift */,
 				5F1E40E81CD7FEE0007BAC7C /* UI */,
+				5FB07A781CEFE3B1008EDC23 /* Trigger */,
 				5F1E40D51CD7FE50007BAC7C /* Channel */,
 				5F1E40AE1CD7FE49007BAC7C /* Assets.xcassets */,
 				5F1E40B31CD7FE49007BAC7C /* Info.plist */,
@@ -160,7 +163,6 @@
 			isa = PBXGroup;
 			children = (
 				5F3B53FF1CDA6C3D008F1D88 /* Channel.swift */,
-				5F3CF3311CE02C00004813D8 /* Trigger.swift */,
 				5F3B54041CDA6C3D008F1D88 /* SampleBuffer.swift */,
 				5F3B54011CDA6C3D008F1D88 /* Decoder.swift */,
 				5F3B54051CDA6C3D008F1D88 /* Transceiver.swift */,
@@ -182,6 +184,15 @@
 				5F5AC0F81CD8D0720047D0AB /* ScopeImageView.swift */,
 			);
 			name = UI;
+			sourceTree = "<group>";
+		};
+		5FB07A781CEFE3B1008EDC23 /* Trigger */ = {
+			isa = PBXGroup;
+			children = (
+				5F3CF3311CE02C00004813D8 /* Trigger.swift */,
+				5F230D6C1CF2013E00162C0D /* AveragingFilter.swift */,
+			);
+			name = Trigger;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -324,6 +335,7 @@
 				5F3B54091CDA6C3D008F1D88 /* config.swift in Sources */,
 				5F3B540F1CDA6C3D008F1D88 /* WindowController.swift in Sources */,
 				5FE99A161CDF97B300469E93 /* ScopeViewMath.swift in Sources */,
+				5F230D6D1CF2013E00162C0D /* AveragingFilter.swift in Sources */,
 				5F3CF3321CE02C00004813D8 /* Trigger.swift in Sources */,
 				5F1E40EE1CD81C5A007BAC7C /* ScopeViewController.swift in Sources */,
 				5F3B540C1CDA6C3D008F1D88 /* SampleBuffer.swift in Sources */,

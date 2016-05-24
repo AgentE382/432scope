@@ -24,114 +24,261 @@ class ChannelViewController: NSViewController {
     @IBOutlet weak var labelDeviceName: NSTextField!
     @IBOutlet weak var labelVoltmeter: NSTextField!
     @IBOutlet weak var labelReadingType: NSTextField!
+    @IBOutlet weak var labelFrequencyMeter: NSTextField!
     @IBOutlet weak var colorWell: NSColorWell!
 
     @IBAction func colorWellAction(sender: NSColorWell) {
         if let ch = channel {
-            ch.traceColor = sender.color
+            ch.displayProperties.traceColor = sender.color
         }
     }
     
-    func disableHeaderSection( ) {
-        voltmeterDisplayState = .Disabled
-        labelVoltmeter.stringValue = "-----"
-        colorWell.enabled = false
-        labelReadingType.stringValue = "-----"
-    }
+    //
+    // DISPLAY CONTROLS
+    //
     
-    func enableHeaderSection( ) {
-        colorWell.enabled = true
-        if let ch = channel {
-            colorWell.color = ch.traceColor
+    // visibility
+    @IBOutlet weak var checkboxVisible: NSButton!
+    
+    @IBAction func checkboxVisibleClicked(sender: NSButton) {
+        if sender.state == NSOnState {
+            channel!.displayProperties.visible = true
         }
-        voltmeterDisplayState = .Instantaneous
-        labelReadingType.stringValue = "(Instant)"
+        if sender.state == NSOffState {
+            channel!.displayProperties.visible = false
+        }
+        updateControlState()
     }
     
-    func updateHeaderSection( ) {
+    // offset
+    var offsetValue:Double = 0
+    @IBOutlet weak var textfieldOffset: NSTextField!
+    @IBOutlet weak var stepperOffset: NSStepper!
+    
+    @IBAction func offsetValueChanged(sender: AnyObject) {
+        channel!.displayProperties.offset = offsetValue
+    }
+    
+    // scaling
+    var scalingValue:Double = 1.0
+    @IBOutlet weak var textfieldScaling: NSTextField!
+    @IBOutlet weak var stepperScaling: NSStepper!
+    
+    @IBAction func scalingValueChanged(sender: AnyObject) {
+        channel!.displayProperties.scaling = scalingValue
+    }
+    
+    //
+    // TRIGGER CONTROLS
+    //
+    
+    @IBOutlet weak var radioNoTrigger: NSButton!
+    @IBOutlet weak var radioRisingEdge: NSButton!
+    
+    @IBAction func radioTriggerSelected(sender: NSButton) {
+        switch sender {
+        case radioNoTrigger:
+            channel!.installTrigger(nil)
+            break
+        case radioRisingEdge:
+            installRisingEdgeTrigger()
+            break
+        default:
+            break
+        }
+        updateControlState()
+    }
+    
+    //
+    // RISING EDGE TRIGGER CONTROLS, INSTALLER
+    //
+    
+    // level controls
+    var risingEdgeLevelValue:Voltage = 0.0
+    @IBOutlet weak var textfieldRisingEdgeLevel: NSTextField!
+    @IBOutlet weak var stepperRisingEdgeLevel: NSStepper!
+    @IBAction func risingEdgeLevelChanged(sender: AnyObject) {
+        installRisingEdgeTrigger()
+        updateControlState()
+    }
+    
+    // level auto controls
+    @IBOutlet weak var checkboxRisingEdgeLevelAuto: NSButton!
+    @IBAction func checkboxRisingEdgeLevelAutoClicked(sender: NSButton) {
+        installRisingEdgeTrigger()
+        updateControlState()
+    }
+    
+    // filter slider
+    var risingEdgeFilterDepthValue:Int = 4
+    @IBOutlet weak var sliderRisingEdgeFilter: NSSlider!
+    @IBAction func sliderRisingEdgeFilterAction(sender: NSSlider) {
+        installRisingEdgeTrigger()
+        updateControlState() 
+    }
+    
+    func installRisingEdgeTrigger() {
+        // auto level tracking?
+        var auto:Bool
+        if (checkboxRisingEdgeLevelAuto.state == NSOnState) {
+            auto = true
+            // initial level?  let's average the last second of samples.
+            let initialPeriodSamples = channel!.sampleBuffer.getSampleRange(TimeRange(newest:0.0, oldest:1.0))
+            var initialPeriodTotal:Sample = 0
+            for sample in initialPeriodSamples {
+                initialPeriodTotal += sample
+            }
+            initialPeriodTotal /= initialPeriodSamples.count
+            risingEdgeLevelValue = initialPeriodTotal.asVoltage()
+        } else {
+            auto = false
+        }
+        
+        channel!.installTrigger(RisingEdgeTrigger(triggerLevel: risingEdgeLevelValue, autoLevel: auto, filterDepth: UInt(risingEdgeFilterDepthValue), notifications: channel!))
+        
+        print("Rising Edge Trigger: level = \(risingEdgeLevelValue)\t\tauto = \(auto)\t\tfilter depth = \(risingEdgeFilterDepthValue)")
+
+    }
+    
+    //
+    // UPDATE CONTROLS STATE
+    //
+    
+    func updateControlState() {
+        
+        // DISPLAY control section enables / disables
+        switch (channel!.displayProperties.visible) {
+        case true:
+            checkboxVisible.state = NSOnState
+            textfieldOffset.enabled = true
+            stepperOffset.enabled = true
+            textfieldScaling.enabled = true
+            stepperScaling.enabled = true
+            break
+        case false:
+            checkboxVisible.state = NSOffState
+            textfieldOffset.enabled = false
+            stepperOffset.enabled = false
+            textfieldScaling.enabled = false
+            stepperScaling.enabled = false
+            break
+        }
+        
+        // is there a trigger installed? make sure the radio buttons reflect that
+        if let trigger = channel!.sampleBuffer.trigger {
+            voltmeterDisplayState = .PeakToPeak
+            // yes. what kind?
+            switch "\(trigger.dynamicType)" {
+            case "RisingEdgeTrigger":
+                radioRisingEdge.state = NSOnState
+                break
+            default:
+                break
+            }
+        } else {
+            // no trigger installed.
+            voltmeterDisplayState = .Instantaneous
+            radioNoTrigger.state = NSOnState
+        }
+        
+        // RISING EDGE TRIGGER stuff
+        
+        if let trigger = channel!.sampleBuffer.trigger as? RisingEdgeTrigger {
+            // it's a rising edge so the auto level checkbox should be enabled
+            checkboxRisingEdgeLevelAuto.enabled = true
+            // is autolevel actually selected?
+            if ( trigger.autoLevel == true ) {
+                // yes, manual is auto.  the value is a Reading now.
+                checkboxRisingEdgeLevelAuto.state = NSOnState
+                textfieldRisingEdgeLevel.enabled = false
+                stepperRisingEdgeLevel.enabled = false
+            } else {
+                // no, level is set manually.
+                checkboxRisingEdgeLevelAuto.state = NSOffState
+                textfieldRisingEdgeLevel.enabled = true
+                stepperRisingEdgeLevel.enabled = true
+                // set the displayed level here.
+                risingEdgeLevelValue = trigger.triggerLevel.asVoltage()
+                textfieldRisingEdgeLevel.stringValue = "\(risingEdgeLevelValue)"
+                stepperRisingEdgeLevel.stringValue = "\(risingEdgeLevelValue)"
+            }
+
+            // filter slider control
+            sliderRisingEdgeFilter.enabled = true
+
+        } else {
+            // there's no rising edge trigger so disable this whole section
+            checkboxRisingEdgeLevelAuto.enabled = false
+            textfieldRisingEdgeLevel.enabled = false
+            stepperRisingEdgeLevel.enabled = false
+            sliderRisingEdgeFilter.enabled = false
+        }
+        
+        // voltmeter
         switch (voltmeterDisplayState) {
+        case .Disabled:
+            break
         case .Instantaneous:
-            labelVoltmeter.stringValue = channel!.sampleBuffer.getNewestSample().asVoltage().asString()
+            labelReadingType.stringValue = "(Instant)"
             break
         case .PeakToPeak:
-            let ptp = channel!.triggerPeriodVoltageRange.span
-            labelVoltmeter.stringValue = ptp.asString()
-            break
-        default:
+            labelReadingType.stringValue = "(Peak-to-peak)"
             break
         }
     }
     
     //
-    // TRIGGER SECTION
+    // UPDATE READINGS
     //
     
-    enum FrequencyDisplayState {
-        case Disabled
-        case Enabled
-    }
-    var frequencyDisplayState:FrequencyDisplayState = .Disabled
+    private var voltmeterReadingFilter = AveragingFilter<Voltage>(bufferSize: CONFIG_DISPLAY_CHANNELVIEW_FILTER_DEPTH, startingAverage: 0.0)
+    private var frequencyMeterReadingFilter = AveragingFilter<Frequency>(bufferSize: CONFIG_DISPLAY_CHANNELVIEW_FILTER_DEPTH, startingAverage: 100)
     
-    @IBOutlet weak var popupTriggerType: NSPopUpButton!
-    @IBOutlet weak var textLevelEntryBox: NSTextField!
-    @IBOutlet weak var labelFrequencyDisplay: NSTextField!
-    
-    @IBAction func triggerTypeSelected(sender: NSPopUpButton) {
-        if let selection = sender.titleOfSelectedItem {
-            switch ( selection ) {
-                
-                case "None":
-                    channel!.installNoTrigger()
-                    textLevelEntryBox.enabled = false
-                    frequencyDisplayState = .Disabled
-                    voltmeterDisplayState = .Instantaneous
-                    labelFrequencyDisplay.stringValue = "-----"
-                    labelReadingType.stringValue = "(Instant)"
-                    break;
-                
-                case "Rising Edge":
-                    textLevelEntryBox.enabled = true
-                    let level = (textLevelEntryBox.objectValue as! Double)
-                    channel!.installRisingEdgeTrigger(Voltage(level))
-                    frequencyDisplayState = .Enabled
-                    voltmeterDisplayState = .PeakToPeak
-                    labelReadingType.stringValue = "(Peak-to-Peak)"
-                    break;
-                
-            default:
-                break;
+    func updateReadings( ) {
+        
+        // voltmeter: display instant or peak-to-peak ...
+        switch (voltmeterDisplayState) {
+        case .Instantaneous:
+            let newestInstantVoltage = voltmeterReadingFilter.filter(channel!.sampleBuffer.getNewestSample().asVoltage())
+            labelVoltmeter.stringValue = newestInstantVoltage.asString()
+            break
+        case .PeakToPeak:
+            if let event = channel!.newestTriggerEvent {
+                let newestPtPVoltage = event.periodVoltageRange.span
+                labelVoltmeter.stringValue = voltmeterReadingFilter.filter(newestPtPVoltage).asString()
+            }
+            break
+        default:
+            break
+        }
+        
+        // frequency meter
+        if let period = channel!.newestTriggerEvent?.samplesSinceLastEvent {
+            let newFrequency:Frequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
+            labelFrequencyMeter.stringValue = frequencyMeterReadingFilter.filter(newFrequency).asString()
+        }
+        
+        // if there's an auto-level trigger, update that reading ...
+        if let trigger = channel!.sampleBuffer.trigger as? RisingEdgeTrigger {
+            if (trigger.autoLevel) {
+                risingEdgeLevelValue = trigger.triggerLevel.asVoltage()
+                textfieldRisingEdgeLevel.stringValue = "\(risingEdgeLevelValue)"
+                stepperRisingEdgeLevel.stringValue = "\(risingEdgeLevelValue)"
             }
         }
-    }
-    
-    @IBAction func triggerLevelChanged(sender: NSTextField) {
-        if let ch = channel {
-            let level = textLevelEntryBox.objectValue as! Double
-            ch.installRisingEdgeTrigger(Voltage(level))
-        }
-    }
-    
-    func enableTriggerSection( ) {
-        popupTriggerType.enabled = true
-    }
-    
-    func disableTriggerSection( ) {
-        popupTriggerType.enabled = false
-        popupTriggerType.selectItemWithTitle("None")
-        textLevelEntryBox.objectValue = Double(0.0)
-        textLevelEntryBox.enabled = false
-        labelFrequencyDisplay.stringValue = "-----"
-        frequencyDisplayState = .Disabled
+        
     }
 
-    func updateTriggerSection( ) {
-        switch (frequencyDisplayState) {
-        case .Enabled:
-            labelFrequencyDisplay.stringValue = channel!.triggerFrequency.asString()
-            break
-        default:
-            break
-        }
+    // The timer for that ...
+    var updateReadingsTimer:NSTimer = NSTimer()
+
+    func startUpdateReadingsTimer( ) {
+        updateReadingsTimer = NSTimer.scheduledTimerWithTimeInterval(1/CONFIG_DISPLAY_CHANNELVIEW_REFRESH_RATE, target: self, selector: #selector(updateReadings), userInfo: nil, repeats: true)
+        updateReadingsTimer.tolerance = 0.08
+    }
+    
+    func stopUpdateReadingsTimer( ) {
+        updateReadingsTimer.invalidate()
     }
     
     //
@@ -171,42 +318,45 @@ class ChannelViewController: NSViewController {
         if ( channel!.isChannelOn == true ) {
             try channel!.channelOff()
         }
+        
+        channel = nil
+    }
+    
+    // these are master start/stop for the entire UI.  Everything more granular than that is in updateControls or updateReadings.
+    
+    func enableUI( ) {
 
+        // HEADER SECTION - color well, voltmeter, freq meter
+
+        colorWell.enabled = true
+        if let ch = channel {
+            colorWell.color = ch.displayProperties.traceColor
+        }
+        voltmeterDisplayState = .Instantaneous
+        labelReadingType.stringValue = "(Instant)"
+        labelFrequencyMeter.stringValue = "-----"
+        
+        // done. start the timer.
+        updateControlState()
+        startUpdateReadingsTimer()
+    }
+    
+    func disableUI( ) {
+        stopUpdateReadingsTimer()
+        
+        // HEADER SECTION - voltmeter, frequency meter, color picker, that stuff
+        
+        voltmeterDisplayState = .Disabled
+        labelVoltmeter.stringValue = "-----"
+        colorWell.enabled = false
+        labelReadingType.stringValue = "-----"
+        labelFrequencyMeter.stringValue = "-----"
     }
     
     //
     // MASTER - stuff that applies to the entire view
     //
-    
-    var uiTimer:NSTimer = NSTimer()
-    
-    func updateDisplay( ) {
-        updateHeaderSection()
-        updateTriggerSection()
-    }
 
-    func startFrameTimer( ) {
-        // 5 FPS for now
-        uiTimer = NSTimer.scheduledTimerWithTimeInterval(0.2, target: self, selector: #selector(updateDisplay), userInfo: nil, repeats: true)
-        uiTimer.tolerance = 0.08
-    }
-    
-    func stopFrameTimer( ) {
-        uiTimer.invalidate()
-    }
-    
-    func enableUI( ) {
-        enableHeaderSection()
-        enableTriggerSection()
-        startFrameTimer()
-    }
-    
-    func disableUI( ) {
-        stopFrameTimer()
-        disableHeaderSection()
-        disableTriggerSection()
-    }
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         print("----ChannelViewController.channelDidLoad")

@@ -10,9 +10,11 @@ import Foundation
 import Cocoa
 
 protocol ChannelNotifications {
-    func channelHasNewData(sender:Channel)
-    func channelTriggerChanged(sender:Channel)
+    func channelHasNewData(sender:Channel) // new samples have been processed and stored in this channel's buffer
+    func channelTriggerChanged(sender:Channel) // this channel's trigger setup has changed
 }
+
+typealias ChannelDisplayProperties = (traceColor:NSColor, visible:Bool, offset:Voltage, scaling:Double)
 
 class Channel : TriggerNotifications, DecoderNotifications {
     
@@ -28,6 +30,7 @@ class Channel : TriggerNotifications, DecoderNotifications {
             svc.channelHasNewData(self)
         }
     }
+
     
     //
     // TRIGGERING - once a trigger is installed, triggerEventDetected gets called when there's an event.
@@ -41,49 +44,31 @@ class Channel : TriggerNotifications, DecoderNotifications {
             return true
         }
     }
-
-    // trigger installers
-    func installNoTrigger() {
-        sampleBuffer.trigger = nil
-        lastTriggerEvent = nil
-        // let SVC know the trigger situation has changed
-        if let svc = notifications {
-            svc.channelTriggerChanged(self)
-        }
-    }
     
-    func installRisingEdgeTrigger( triggerLevel:Voltage ) {
-        sampleBuffer.trigger = RisingEdgeTrigger(capacity: CONFIG_SAMPLERATE*CONFIG_BUFFER_LENGTH, level:triggerLevel.asSample())
-        sampleBuffer.trigger!.notifications = self
-        lastTriggerEvent = nil
-        if let svc = notifications {
-            svc.channelTriggerChanged(self)
+    func installTrigger( newTrigger:Trigger? ) {
+        print("----Channel.installTrigger")
+        
+        // whatever the deal is, values stored in these are no longer relevant.
+        newestTriggerEvent = nil
+        
+        if newTrigger == nil {
+            // remove the trigger.
+            sampleBuffer.trigger = nil
+        } else {
+            // install the new one
+            sampleBuffer.trigger = newTrigger
         }
+        
+        notifications?.channelTriggerChanged(self)
     }
     
     // the basic notification handler
     func triggerEventDetected( event:TriggerEvent ) {
-        if let lastEvent = lastTriggerEvent {
-            // there's been a prior event to compare this new one to, so we can compute frequency.
-            let period = event.timestamp - lastEvent.timestamp
-            triggerFrequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
-        }
-        lastTriggerEvent = event
+        newestTriggerEvent = event
     }
     
     // compute interesting things based on trigger events
-    private(set) var lastTriggerEvent:TriggerEvent? = nil
-    
-    var triggerFrequency:Frequency = 0.0
-    
-    var triggerPeriodVoltageRange:VoltageRange {
-        get {
-            guard lastTriggerEvent != nil else {
-                return VoltageRange(min:0, max:0)
-            }
-            return VoltageRange(min: lastTriggerEvent!.periodLowestSample.asVoltage(), max: lastTriggerEvent!.periodHighestSample.asVoltage())
-        }
-    }
+    private(set) var newestTriggerEvent:TriggerEvent? = nil
     
     func getTriggeredCenterTime( visibleRangeHalfSpan:Time ) -> Time? {
         // if there's actually no trigger attached, this isn't gonna work ...
@@ -111,14 +96,22 @@ class Channel : TriggerNotifications, DecoderNotifications {
     }
     
     //
+    // DISPLAY PROPERTIES
+    //
+    
+    var displayProperties:ChannelDisplayProperties = (
+        traceColor: TraceColorGenerator.getColor(),
+        visible: true,
+        offset: 0.0,
+        scaling: 1.0
+    )
+    
+    //
     // FUNDAMENTALS
     //
     
-    // this sends out "drawable" notifications
+    // this sends out "drawable" notifications when a new data packet is through processing.
     var notifications:ChannelNotifications? = nil
-    
-    // display parameters
-    var traceColor = TraceColorGenerator.getColor()
     
     // the signal chain
     private(set) var transceiver:Transceiver? = nil

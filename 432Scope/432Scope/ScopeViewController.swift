@@ -11,6 +11,71 @@ import Cocoa
 class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageViewNotifications {
     
     //
+    // SELECTION BOX
+    //
+    
+    @IBOutlet weak var labelSelectionX: NSTextField!
+    @IBOutlet weak var labelSelectionY: NSTextField!
+    @IBOutlet weak var labelSelectionDelta: NSTextField!
+    
+    func updateSelectionLabels() {
+        if let sel = ScopeViewMath.getSelectionRanges() {
+            
+            labelSelectionX.stringValue = "x: (\(sel.tRange.min.asString()), \(sel.tRange.max.asString()))"
+            labelSelectionY.stringValue = "y: (\(sel.vRange.min.asString()), \(sel.vRange.max.asString()))"
+            let deltaX = sel.tRange.span
+            let deltaY = sel.vRange.span
+            let f = Frequency(1 / deltaX)
+            labelSelectionDelta.stringValue = "Δx: \(deltaX.asString()), Δy: \(deltaY.asString()), 1/Δx: \(f.asString())"
+            
+        } else {
+            labelSelectionX.stringValue = "x: (---.--- -, ---.--- -)"
+            labelSelectionY.stringValue = "y: (---.--- -, ---.--- -)"
+            labelSelectionDelta.stringValue = "Δx: ---.--- -, Δy: ---.--- -, 1/Δx: ---.--- -"
+        }
+    }
+    
+    //
+    // MOUSE DRAG EVENTS: used for drawing selection rectangles to measure stuff.
+    //
+    
+    private var mouseWentDownHere:CGPoint? = nil
+    override func mouseDown( theEvent:NSEvent ) {
+        let pointInViewCoords:NSPoint = scopeImage.convertPoint(theEvent.locationInWindow, fromView: nil)
+        
+        // is the mouse location in the trace view? if not, we don't care, so bail.
+        if ( (pointInViewCoords.x < 0) || (pointInViewCoords.y < 0) || (pointInViewCoords.x > scopeImage.frame.width) || (pointInViewCoords.y > scopeImage.frame.height) ) {
+            return
+        }
+        
+        ScopeViewMath.updateSelection(nil)
+        updateSelectionLabels()
+        mouseWentDownHere = pointInViewCoords
+    }
+    
+    override func mouseDragged( theEvent:NSEvent ) {
+        let pointInViewCoords:NSPoint = scopeImage.convertPoint(theEvent.locationInWindow, fromView: nil)
+        
+        // did this drag event start here?  if not, we don't care
+        if ( mouseWentDownHere == nil ) {
+            return
+        }
+        
+        ScopeViewMath.updateSelection(pointInViewCoords)
+        updateSelectionLabels()
+    }
+    
+    override func mouseUp( theEvent:NSEvent ) {
+        let pointInViewCoords:NSPoint = scopeImage.convertPoint(theEvent.locationInWindow, fromView: nil)
+        if ( pointInViewCoords == mouseWentDownHere )  {
+            // it was a click, not a drag. clear the selection.
+            ScopeViewMath.updateSelection(nil)
+            updateSelectionLabels()
+        }
+        mouseWentDownHere = nil
+    }
+    
+    //
     // VIEW MODE CONTROLS - the actual state enum is in ScopeViewMath.
     //
 
@@ -34,6 +99,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
             print("viewModeSelected: who said that?!?")
             break
         }
+        ScopeViewMath.updateSelection(nil)
         updateViewModeControls()
     }
     
@@ -50,12 +116,12 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
             print("somehow you selected a trigger on a channel that doesn't exist.")
             return
         }
-        print("scope view mode set to Trigger(\(newChan!.name)")
+//        print("scope view mode set to Trigger(\(newChan!.name)")
         ScopeViewMath.scopeImageViewDisplayState = .Trigger(newChan!)
     }
     
     func updateViewModeControls() {
-        print("----updateViewModeControls()")
+//        print("----updateViewModeControls()")
         
         // enumerate possible triggers
         var selectableTriggers:[String] = []
@@ -64,7 +130,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
                 selectableTriggers.append(ch.name)
             }
         }
-        print("there are \(selectableTriggers.count) selectable triggers.")
+ //       print("there are \(selectableTriggers.count) selectable triggers.")
         
         // populate the trigger menu, preserving selection if possible
         let previousSelection = popupTriggerSelector.titleOfSelectedItem
@@ -178,7 +244,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
             return
         }
         
-        print("entering trigger mode on \(selectedChannel!.name)")
+//        print("entering trigger mode on \(selectedChannel!.name)")
         ScopeViewMath.scopeImageViewDisplayState = .Trigger(selectedChannel!)
     }
     
@@ -237,31 +303,14 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
             ScopeViewMath.update(nil, vvRange: newVVRange, tvRange: newTVRange)
         } else {
             // we are panning
-            let dVoltage = dY.asVoltageDiff() // Translate.graphicsDeltaToVoltage(dY)
+            let dVoltage = dY.asVoltageDiff()
             let newVVRange = VoltageRange(min: ScopeViewMath.vvRange.min + dVoltage,
                                           max: ScopeViewMath.vvRange.max + dVoltage)
-            let dTime = dX.asTimeDiff() // Translate.graphicsDeltaToTime(dX)
+            let dTime = dX.asTimeDiff()
             let newTVRange = TimeRange(newest: ScopeViewMath.tvRange.newest + dTime,
                                        oldest: ScopeViewMath.tvRange.oldest + dTime)
-            // just a pan so only a few updates are needed
             ScopeViewMath.update(nil, vvRange: newVVRange, tvRange: newTVRange)
         }
-    }
-    
-    //
-    // MOUSE DRAG EVENTS: not sure what to do with these yet.
-    //
-    
-    var lastMouseDragPoint:NSPoint? = nil
-    override func mouseDragged( theEvent:NSEvent ) {
-    }
-    
-    override func mouseDown( theEvent:NSEvent ) {
-        lastMouseDragPoint = NSEvent.mouseLocation()
-    }
-    
-    override func mouseUp( theEvent:NSEvent ) {
-        lastMouseDragPoint = nil
     }
     
     //
@@ -326,6 +375,12 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
         case .Stop:
             break
         case .Timeline:
+            // glue the time viewable range to the newest.
+            if ( ScopeViewMath.tvRange.newest != 0 ) {
+                let viewWidth = ScopeViewMath.tvRange.span
+                let newTVRange = TimeRange(newest: 0, span: viewWidth)
+                ScopeViewMath.update(nil, vvRange: nil, tvRange: newTVRange)
+            }
             break
         case .Trigger(let ch):
             // we need to adjust the view around the trigger on ch.
@@ -386,7 +441,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
         
         // scope view math stuff
         ScopeViewMath.initializeViewMath()
-        ScopeViewMath.update(scopeImage.frame.size, vvRange: nil, tvRange: nil)
+        ScopeViewMath.update(scopeImage.frame.size, vvRange: VoltageRange(min:-5, max:5), tvRange: TimeRange(newest:0.0, oldest:0.05))
         
         // subscribe to the ScopeImageViewNotifications ...
         scopeImage!.notifications = self
@@ -395,6 +450,9 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
         radioViewModeTimeline.state = NSOnState
         radioViewModeTrigger.enabled = false
         popupTriggerSelector.enabled = false
+        
+        // initial selection info
+        updateSelectionLabels()
     }
     
     deinit {

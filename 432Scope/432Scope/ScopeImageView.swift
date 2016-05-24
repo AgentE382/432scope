@@ -23,40 +23,65 @@ class ScopeImageView: NSImageView {
 
     var notifications:ScopeImageViewNotifications? = nil
     var channels:[Channel] = []
+    
+    //
+    // SELECTION BOX
+    //
+    
+    private var selectionBoxPhase:CGFloat = 0
+    private var selectionBoxPhaseDelta:CGFloat = 0.5
+    
+    func drawSelection() {
+        guard ScopeViewMath.selectionRect != nil else {
+            return
+        }
+        
+        let color = NSColor.whiteColor()
+        color.setStroke()
+        
+        let currentContext = NSGraphicsContext.currentContext()?.CGContext
+        CGContextSetLineDash(currentContext, selectionBoxPhase, [5,5], 2)
+        CGContextStrokeRect(currentContext, ScopeViewMath.selectionRect!)
+        selectionBoxPhase += selectionBoxPhaseDelta
+    }
 
     //
     // SAMPLE PLOTTING
     //
     
-    func drawSamplesPointArray(ch:Int) {
-        // one channel: ~22%, yeah, it's a little faster ...
+    func drawSamples_minmax_inplace(chIndex:Int) {
+        let ch = channels[chIndex]
         
-        // set up this channel's color and translation factor
-        channels[ch].traceColor.setStroke()
+        // get all the local minmaxes
+        let minmaxes = ch.sampleBuffer.getSubRangeMinMaxes(ScopeViewMath.tvRange, howManySubranges: Int(frame.width))
         
-        // get the samples, their count, their spacing, starting X ...
-        let samples = channels[ch].sampleBuffer.getSampleRange(ScopeViewMath.tvRange)
-        let sampleXSpacing:CGFloat = frame.width / CGFloat(samples.count)
-        var xPosition = frame.width
-        
-        // set up the bezier path object ...
-        let bezierPath = NSBezierPath()
-        bezierPath.moveToPoint(NSPoint(x: xPosition, y: samples[0].asCoordinate() ))
-        
-        // build an array of points from the first slice
-        let points = NSPointArray.alloc(samples.count)
-        for i in 0..<samples.count {
-            points[i] = NSPoint(x: xPosition, y: samples[i].asCoordinate() )
-            xPosition -= sampleXSpacing
+        // we can start our path now at the first sample ...
+        let cgPath = CGPathCreateMutable()
+        CGPathMoveToPoint(cgPath, nil, frame.width, CGFloat(ch.sampleBuffer.getSampleAtTime(ScopeViewMath.tvRange.newest)))
+        // trace the maxes ...
+        var currentXPixel = frame.width
+        for local in minmaxes {
+            CGPathAddLineToPoint(cgPath, nil, currentXPixel, local.max.asCoordinate())
+            currentXPixel -= 1
         }
-
-        bezierPath.appendBezierPathWithPoints(points, count: samples.count)
-
-        points.dealloc(samples.count)
+        // .. now trace the mins
+        for local in minmaxes.reverse() {
+            currentXPixel += 1
+            CGPathAddLineToPoint(cgPath, nil, currentXPixel, local.min.asCoordinate())
+        }
         
-        // draw.  DO NOT closePath!!
-        bezierPath.stroke()
+        // set the color
+        let color = ch.displayProperties.traceColor
+        color.setStroke()
+        let fillColor = color.colorWithAlphaComponent(0.5)
+        fillColor.setFill()
+        
+        // draw them
+        let currentContext = NSGraphicsContext.currentContext()?.CGContext
+        CGContextAddPath(currentContext, cgPath)
+        CGContextDrawPath(currentContext,.FillStroke)
     }
+
 
     //
     // GRID LINES
@@ -66,13 +91,18 @@ class ScopeImageView: NSImageView {
     
     func drawGridLines( ) {
         // GRIDLINES
-        CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR.setFill()
+        
+        let context = NSGraphicsContext.currentContext()?.CGContext
         
         // VERTICAL (TIME) GRIDLINES
         for tLine in ScopeViewMath.timeGridLines {
             // line
-            tLine.color.setFill()
-            NSRectFill(NSRect(x: tLine.lineCoord, y: 0, width: 1, height: frame.height))
+            tLine.color.setStroke()
+            let path = CGPathCreateMutable()
+            CGPathMoveToPoint(path, nil, tLine.lineCoord, 0)
+            CGPathAddLineToPoint(path, nil, tLine.lineCoord, frame.height)
+            CGContextAddPath(context, path)
+            CGContextStrokePath(context)
             // label
             if let lineLabel = tLine.label {
                 let stringSize = lineLabel.sizeWithAttributes(gridLineLabelAttributes)
@@ -83,8 +113,13 @@ class ScopeImageView: NSImageView {
         // HORIZONTAL (VOLTAGE) GRIDLINES
         for vLine in ScopeViewMath.voltageGridLines {
             //line
-            vLine.color.setFill()
-            NSRectFill(NSRect(x: 0, y: vLine.lineCoord, width: frame.width, height: 1))
+            vLine.color.setStroke()
+            let path = CGPathCreateMutable()
+            CGPathMoveToPoint(path, nil, 0, vLine.lineCoord)
+            CGPathAddLineToPoint(path, nil, frame.width, vLine.lineCoord)
+            CGContextAddPath(context, path)
+            CGContextStrokePath(context)
+//            NSRectFill(NSRect(x: 0, y: vLine.lineCoord, width: frame.width, height: 1))
             //label
             if let lineLabel = vLine.label {
                 let stringSize = lineLabel.sizeWithAttributes(gridLineLabelAttributes)
@@ -114,8 +149,16 @@ class ScopeImageView: NSImageView {
         
         // curves
         for ch in 0..<channels.count {
-            drawSamplesPointArray(ch)
+            if ( channels[ch].displayProperties.visible == true ) {
+                ScopeViewMath.setSampleDisplayTransform(channels[ch].displayProperties.offset,
+                                                        scaling: channels[ch].displayProperties.scaling)
+                drawSamples_minmax_inplace(ch)
+                ScopeViewMath.clearSampleDisplayTransform()
+            }
         }
+        
+        // selection rectangle
+        drawSelection()
         
         // let the boss know our work here is done.
         if let del = notifications {

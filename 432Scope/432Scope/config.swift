@@ -13,13 +13,13 @@ import Cocoa
 // DISPLAY
 //
 
-// The display frame rate!
+// The trace display (ScopeViewController) frame rate!
 let CONFIG_DISPLAY_REFRESH_RATE:Double = 20
 
 // Scope View grid colors
 let CONFIG_DISPLAY_SCOPEVIEW_BACKGROUND_COLOR = NSColor(calibratedWhite: 0.0, alpha: 1.0)
 let CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR = NSColor(calibratedWhite: 0.2, alpha: 1.0)
-let CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR = NSColor(calibratedWhite: 0.6, alpha: 1.0)
+let CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR = NSColor(calibratedWhite: 1.0, alpha: 1.0)
 
 // scope view scrolling limits
 let CONFIG_DISPLAY_TIME_LIMITS = TimeRange(newest:0, oldest:10)
@@ -32,6 +32,10 @@ let CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS:(min:Voltage, max:Voltage) = (0.1, CONFIG
 // grid line spacing constant.  This is essentially the minimum space between gridlines.
 let CONFIG_DISPLAY_TIME_GRID_CONSTANT:CGFloat = 80
 let CONFIG_DISPLAY_VOLTAGE_GRID_CONSTANT:CGFloat = 50
+
+// channel view reading rate in FPS, and depth of the filter on those readings
+let CONFIG_DISPLAY_CHANNELVIEW_REFRESH_RATE:Double = 10
+let CONFIG_DISPLAY_CHANNELVIEW_FILTER_DEPTH:Int = 16
 
 //
 // I/O
@@ -54,6 +58,7 @@ let CONFIG_AFE_VOLTAGE_RANGE = VoltageRange(min:-15.0, max:15.0)
 
 // the max bound that voltage range will get mapped to by the ADC.
 let CONFIG_SAMPLE_MAX_VALUE:Sample = 16383 // 2^14-1
+
 
 
 //
