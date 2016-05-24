@@ -11,7 +11,7 @@ import Cocoa
 class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageViewNotifications {
     
     //
-    // SELECTION BOX
+    // SELECTION DISPLAY
     //
     
     @IBOutlet weak var labelSelectionX: NSTextField!

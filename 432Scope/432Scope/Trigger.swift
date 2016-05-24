@@ -50,8 +50,8 @@ class Trigger {
         }
     }
     
-    private func recordTimestamp(latencyCorrection:UInt) {
-        eventTimestamps.append(currentTimestamp &- latencyCorrection)
+    private func recordTimestamp(timestamp:UInt) {
+        eventTimestamps.append(timestamp)
         
         // while we're at it, cull any really old ones.
         for _ in 0..<eventTimestamps.count {
@@ -74,13 +74,14 @@ class Trigger {
         periodMax = Sample.min
     }
     
-    private func updateMinMax(newSample:Sample) {
+    private func updateMinMax(newSample:Sample) -> (min:Sample, max:Sample) {
         if (newSample < periodMin) {
             periodMin = newSample
         }
         if (newSample > periodMax) {
             periodMax = newSample
         }
+        return (min:periodMin, max:periodMax)
     }
     
     //
@@ -89,27 +90,38 @@ class Trigger {
     
     // derived classes should call this when they detect an event to store it in the timekeeping array.
     private func eventHappened(newSample:Sample, triggerLatency:UInt) {
-        updateMinMax(newSample)
+        // figure the final min/max
+        let periodMinMax = updateMinMax(newSample)
+        resetMinMax()
+        
+        // figure the latency-compensated timestamp
+        let theRealTimestamp:UInt = currentTimestamp &- triggerLatency
+        
+        // figure out the sample period, if there is one
         var samplesSinceLastEvent:Int? = nil
-        if ( lastEventTimestamp != nil ) {
-            samplesSinceLastEvent = Int((currentTimestamp &- triggerLatency) &- lastEventTimestamp!)
+        if let lastTimestamp = lastEventTimestamp {
+            samplesSinceLastEvent = Int(theRealTimestamp &- lastTimestamp)
         }
+        
+        // notify
         notifications.triggerEventDetected( TriggerEvent(
-                timestamp: currentTimestamp &- triggerLatency,
-                periodLowestSample: periodMin,
-                periodHighestSample: periodMax,
+                timestamp: theRealTimestamp,
+                periodLowestSample: periodMinMax.min,
+                periodHighestSample: periodMinMax.max,
                 samplesSinceLastEvent: samplesSinceLastEvent
             ))
-        recordTimestamp(triggerLatency)
-        resetMinMax()
+        
+        // record
+        recordTimestamp(theRealTimestamp)
+
+        // tick the timestamp
         currentTimestamp = currentTimestamp &+ 1
     }
 
     // derived classes should call this when they have gotten a new sample and determined it was NOT a trigger event.
+    
     private func eventDidNotHappen(newSample:Sample) {
-        // update the minmax
         updateMinMax(newSample)
-        // increment the clock
         currentTimestamp = currentTimestamp &+ 1
     }
     
