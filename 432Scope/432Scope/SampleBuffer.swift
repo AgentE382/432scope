@@ -115,9 +115,7 @@ class SampleBuffer {
         // TODO: parallel-process this??
         
         // TODO: get this function call out of here?
-        
-        // TODO: write "getSampleAtTime" so the UI has that as a MoveTo point.
-        
+                
         let visibleSampleCount:Int = getSubRangeSampleCount(timeRange)
         let subrangeWidthInSamples:CGFloat = CGFloat(visibleSampleCount) / CGFloat(howManySubranges)
         let subrangeSampleCount:Int = Int(ceil(subrangeWidthInSamples))

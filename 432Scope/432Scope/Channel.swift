@@ -83,7 +83,7 @@ class Channel : TriggerNotifications, DecoderNotifications {
             return nil
         }
         
-        let minimumSampleIndex = UInt(visibleRangeHalfSpan.asSampleIndex())
+        let minimumSampleIndex = UInt((-visibleRangeHalfSpan).asSampleIndex())
         for i in 1...events.count {
             // we have to do a little index-flipping math to count down, because the newest timestamps are at the end of the array.
             let index = events.count - i

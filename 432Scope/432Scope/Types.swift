@@ -101,7 +101,7 @@ extension Voltage: RangeableType {
 
 extension SampleIndex {
     func asTime() -> Time {
-        return Time(self) * CONFIG_SAMPLEPERIOD
+        return -(Time(self) * CONFIG_SAMPLEPERIOD)
     }
 }
 
@@ -122,13 +122,14 @@ extension Time: RangeableType, IsTime {
     }
     
     func asCoordinate( ) -> CGFloat {
-        var xVal = self - ScopeViewMath.tvRange.newest
+ /*       var xVal = self - ScopeViewMath.tvRange.newest
         xVal *= ScopeViewMath.timeScaleFactor
-        return CGFloat(ScopeViewMath.imageSize.width - xVal);
+        return CGFloat(ScopeViewMath.imageSize.width - xVal);*/
+        return CGFloat(self - ScopeViewMath.tvRange.oldest) * ScopeViewMath.timeScaleFactor
     }
     
     func asSampleIndex( ) -> SampleIndex {
-        return SampleIndex(floor(self*Time(CONFIG_SAMPLERATE)))
+        return SampleIndex(floor(-self*Time(CONFIG_SAMPLERATE)))
     }
     
     func asGraphicsDiff( ) -> CGFloat {
@@ -146,7 +147,7 @@ extension CGFloat {
     
     // if self is a ScopeImageView coordinate, these translate it to Time (x) or Voltage (y).
     func asTime( ) -> Time {
-        return (Time(ScopeViewMath.imageSize.width-self)*ScopeViewMath.inverseTimeScaleFactor)+ScopeViewMath.tvRange.newest
+        return Time(self * ScopeViewMath.inverseTimeScaleFactor) + ScopeViewMath.tvRange.oldest
     }
     
     func asVoltage( ) -> Voltage {
@@ -298,27 +299,19 @@ protocol IsTime {
 extension FloatingRangeType where T:IsTime {
     
     init(newest:T, oldest:T) {
-        min = newest
-        max = oldest
+        max = newest
+        min = oldest
     }
     init(newest:T, span:T) {
-        self.min = newest
-        self.max = newest+span
+        self.max = newest
+        self.min = newest-span
     }
     init(oldest:T, span:T) {
-        self.min = oldest-span
-        self.max = oldest
+        self.min = oldest
+        self.max = oldest+span
     }
     
     var newest:T {
-        get {
-            return min
-        }
-        set(value) {
-            min = value
-        }
-    }
-    var oldest:T {
         get {
             return max
         }
@@ -326,9 +319,17 @@ extension FloatingRangeType where T:IsTime {
             max = value
         }
     }
+    var oldest:T {
+        get {
+            return min
+        }
+        set(value) {
+            min = value
+        }
+    }
     
     func asSampleIndexRange( ) -> SampleIndexRange {
-        return (newest: min.asSampleIndex(), oldest: max.asSampleIndex())
+        return (newest: max.asSampleIndex(), oldest: min.asSampleIndex())
     }
 }
 

@@ -28,6 +28,7 @@ class ScopeImageView: NSImageView {
     // SELECTION BOX
     //
     
+    // these are for animating the dotted line
     private var selectionBoxPhase:CGFloat = 0
     private var selectionBoxPhaseDelta:CGFloat = 0.5
     
@@ -119,7 +120,6 @@ class ScopeImageView: NSImageView {
             CGPathAddLineToPoint(path, nil, frame.width, vLine.lineCoord)
             CGContextAddPath(context, path)
             CGContextStrokePath(context)
-//            NSRectFill(NSRect(x: 0, y: vLine.lineCoord, width: frame.width, height: 1))
             //label
             if let lineLabel = vLine.label {
                 let stringSize = lineLabel.sizeWithAttributes(gridLineLabelAttributes)

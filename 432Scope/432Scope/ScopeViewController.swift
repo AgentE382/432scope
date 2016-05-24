@@ -21,7 +21,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
     func updateSelectionLabels() {
         if let sel = ScopeViewMath.getSelectionRanges() {
             
-            labelSelectionX.stringValue = "x: (\(sel.tRange.min.asString()), \(sel.tRange.max.asString()))"
+            labelSelectionX.stringValue = "x: (\(sel.tRange.oldest.asString()), \(sel.tRange.newest.asString()))"
             labelSelectionY.stringValue = "y: (\(sel.vRange.min.asString()), \(sel.vRange.max.asString()))"
             let deltaX = sel.tRange.span
             let deltaY = sel.vRange.span
@@ -307,8 +307,8 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
             let newVVRange = VoltageRange(min: ScopeViewMath.vvRange.min + dVoltage,
                                           max: ScopeViewMath.vvRange.max + dVoltage)
             let dTime = dX.asTimeDiff()
-            let newTVRange = TimeRange(newest: ScopeViewMath.tvRange.newest + dTime,
-                                       oldest: ScopeViewMath.tvRange.oldest + dTime)
+            let newTVRange = TimeRange(newest: ScopeViewMath.tvRange.newest - dTime,
+                                       oldest: ScopeViewMath.tvRange.oldest - dTime)
             ScopeViewMath.update(nil, vvRange: newVVRange, tvRange: newTVRange)
         }
     }
@@ -441,7 +441,7 @@ class ScopeViewController: NSViewController, ChannelNotifications, ScopeImageVie
         
         // scope view math stuff
         ScopeViewMath.initializeViewMath()
-        ScopeViewMath.update(scopeImage.frame.size, vvRange: VoltageRange(min:-5, max:5), tvRange: TimeRange(newest:0.0, oldest:0.05))
+        ScopeViewMath.update(scopeImage.frame.size, vvRange: VoltageRange(min:-5, max:5), tvRange: TimeRange(newest:0.0, oldest:-0.05))
         
         // subscribe to the ScopeImageViewNotifications ...
         scopeImage!.notifications = self

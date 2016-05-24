@@ -18,11 +18,11 @@ let CONFIG_DISPLAY_REFRESH_RATE:Double = 20
 
 // Scope View grid colors
 let CONFIG_DISPLAY_SCOPEVIEW_BACKGROUND_COLOR = NSColor(calibratedWhite: 0.0, alpha: 1.0)
-let CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR = NSColor(calibratedWhite: 0.2, alpha: 1.0)
+let CONFIG_DISPLAY_SCOPEVIEW_GRIDLINE_COLOR = NSColor(calibratedWhite: 1.0, alpha: 0.2)
 let CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR = NSColor(calibratedWhite: 1.0, alpha: 1.0)
 
 // scope view scrolling limits
-let CONFIG_DISPLAY_TIME_LIMITS = TimeRange(newest:0, oldest:10)
+let CONFIG_DISPLAY_TIME_LIMITS = TimeRange(newest:0, oldest:-10)
 let CONFIG_DISPLAY_VOLTAGE_LIMITS = VoltageRange(min:-20, max:20)
 
 // scope view zooming limits

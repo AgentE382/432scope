@@ -252,18 +252,19 @@ class ScopeViewMath {
     //
     
     private class func recalculateTimeGridLines( ) {
-        // this changes depending on the view mode...
         switch scopeImageViewDisplayState {
             
         case .Stop, .Timeline:
-            let firstGridMultiplier = ceil(tvRange.newest / timeGridSpacing)
+            // find the newest grid line that will actually be in view
+            let firstGridMultiplier = floor(tvRange.newest / timeGridSpacing)
             var aGridTime:Time = firstGridMultiplier * timeGridSpacing
+            // walk right-to-left until we're past the tvRange.oldest.
             var gridCoords:[GridLine] = []
-            while ( aGridTime < tvRange.oldest ) {
+            while ( aGridTime > tvRange.oldest ) {
                 let xPos = aGridTime.asCoordinate()
-                let label = (-aGridTime).asString()
+                let label = aGridTime.asString()
                 gridCoords.append(GridLine(lineCoord:xPos, label:label))
-                aGridTime += timeGridSpacing
+                aGridTime -= timeGridSpacing
             }
             timeGridLines = gridCoords
             break
@@ -271,29 +272,36 @@ class ScopeViewMath {
         case .Trigger:
             var gridCoords:[GridLine] = []
             
+            // will need this to offset the graphics diffs
+            let halfImageWidth = imageSize.width / 2
+            
+
             // start at the first gridline in positive time, count newer
-            let centerTime:Time = tvRange.center
-            var aGridTime = centerTime - timeGridSpacing
-            while (aGridTime > tvRange.newest) {
-                let xPos = aGridTime.asCoordinate()
-                let xLabel = (-(aGridTime - centerTime)).asString()
-                gridCoords.append(GridLine(lineCoord: xPos, label: xLabel))
-                aGridTime -= timeGridSpacing
-            }
-            // count older
-            aGridTime = centerTime + timeGridSpacing
-            while ( aGridTime < tvRange.oldest ) {
-                let xPos = aGridTime.asCoordinate()
-                let xLabel = (-(aGridTime - centerTime)).asString()
-                gridCoords.append(GridLine(lineCoord: xPos, label: xLabel))
+            var aGridTime:Time = timeGridSpacing
+            while (aGridTime < tvRange.halfSpan) {
+                let xPos = aGridTime.asGraphicsDiff() + halfImageWidth
+                let label = aGridTime.asString()
+                gridCoords.append(GridLine(lineCoord: xPos, label: label))
                 aGridTime += timeGridSpacing
             }
-            // add t=0 line
-            gridCoords.append(GridLine(lineCoord: centerTime.asCoordinate(), label: Time(0.0).asString(), color: CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR))
+            
+            // start at the first gridline in negative time, count older
+            aGridTime = -timeGridSpacing
+            while (aGridTime > (-tvRange.halfSpan)) {
+                let xPos = aGridTime.asGraphicsDiff() + halfImageWidth
+                let label = aGridTime.asString()
+                gridCoords.append(GridLine(lineCoord: xPos, label: label))
+                aGridTime -= timeGridSpacing
+            }
+            
+            // add t=0 center line
+            gridCoords.append(GridLine(lineCoord: halfImageWidth, label: "0 S", color: CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR))
             
             timeGridLines = gridCoords
+            
             break
         }
+
     }
     
     private class func recalculateVoltageGridLines( ) {
@@ -309,7 +317,7 @@ class ScopeViewMath {
         }
         // reverse the array so far and add ground, so that at the end we'll have them in order as they appear on screen, and we can add labels to every 2nd or third one easily.
         gridCoords = gridCoords.reverse()
-        gridCoords.append(GridLine(lineCoord:Voltage(0.0).asCoordinate(), label:nil, color:CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR))
+        gridCoords.append(GridLine(lineCoord:Voltage(0.0).asCoordinate(), label:"0 V", color:CONFIG_DISPLAY_SCOPEVIEW_GROUNDLINE_COLOR))
         aGridVoltage = -voltageGridSpacing
         while ( aGridVoltage > vvRange.min ) {
             if ( aGridVoltage < vvRange.max ) {
@@ -336,7 +344,7 @@ class ScopeViewMath {
             var newPoint:TVCoord = (t:0, v:0)
             switch scopeImageViewDisplayState {
             case .Stop, .Timeline:
-                newPoint.t = -cgPoint.x.asTime()
+                newPoint.t = cgPoint.x.asTime()
                 newPoint.v = cgPoint.y.asVoltage()
                 break
             case .Trigger:
@@ -372,10 +380,11 @@ class ScopeViewMath {
             
             switch scopeImageViewDisplayState {
             case .Stop, .Timeline:
-                origin.x = (-selectionStartPoint!.t).asCoordinate()
+                origin.x = selectionStartPoint!.t.asCoordinate()
                 origin.y = selectionStartPoint!.v.asCoordinate()
-                size.width = (-selectionEndPoint!.t).asCoordinate() - origin.x
+                size.width = selectionEndPoint!.t.asCoordinate() - origin.x
                 size.height = selectionEndPoint!.v.asCoordinate() - origin.y
+                print("origin: \(origin), size: \(size)")
                 break
                 
             case .Trigger:
