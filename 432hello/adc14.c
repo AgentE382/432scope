@@ -8,9 +8,10 @@
 // 1200 = 10 kHz
 // 240 = 50 kHz
 // 120 = 100 kHz and that is ~2/3 UART saturation.
+// 100 = 120 kHz and that is 80% saturation
 
-#define ADC14_TRIGGER_PERIOD 120
-#define ADC14_TRIGGER_RETURN 60
+#define ADC14_TRIGGER_PERIOD 100
+#define ADC14_TRIGGER_RETURN 50
 
 
 
@@ -64,8 +65,9 @@ void InitializeADC( )
 	// multiple-sample-mode. off for now.  we want the ADC to wait for the next trigger.
 	ADC14->CTL0 &= ~ADC14_CTL0_MSC;
 
-	// sample-and-hold time for inputs including 15
-	ADC14->CTL0 |= ADC14_CTL0_SHT1__32;
+	// sample-and-hold time for all channels
+	ADC14->CTL0 |= ADC14_CTL0_SHT1__64;
+	ADC14->CTL0 |= ADC14_CTL0_SHT0__64;
 
 	// repeat-single-channel-mode
 	ADC14->CTL0 |= ADC14_CTL0_CONSEQ_2;
@@ -122,7 +124,7 @@ void ADC_Go( )
 	ADC14->CLRIFGR0 |= BIT0;
 	ADC14->IER0 |= BIT0;
 
-	TURN_ON_LEDB;
+//	TURN_ON_LEDB;
 //	UartSendString("-----DAC GO-----\n\r\0");
 }
 
@@ -135,7 +137,7 @@ void ADC_Stop( )
 	// interrupt OFF
 	ADC14->IER0 &= ~BIT0;
 
-	TURN_OFF_LEDB;
+//	TURN_OFF_LEDB;
 //	UartSendString( "-----DAC STOP-----\n\r\0" );
 }
 

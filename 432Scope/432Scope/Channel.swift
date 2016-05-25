@@ -77,22 +77,25 @@ class Channel : TriggerNotifications, DecoderNotifications {
         }
         
         // if there's a trigger but no events yet, same deal ...
-        let events = sampleBuffer.trigger!.eventTimestamps
-        let currentTime = sampleBuffer.trigger!.currentTimestamp
-        guard events.count > 0 else {
-            return nil
-        }
+        let trig = sampleBuffer.trigger!
         
+        let currentTime = trig.currentTimestamp
+        
+        // we want to flip through the events, newest-first, and stop on the first one older than half the visible range.
         let minimumSampleIndex = UInt((-visibleRangeHalfSpan).asSampleIndex())
-        for i in 1...events.count {
-            // we have to do a little index-flipping math to count down, because the newest timestamps are at the end of the array.
-            let index = events.count - i
-            let age = currentTime &- events[index]
-            if ( age > minimumSampleIndex ) {
-                return SampleIndex(age).asTime()
+        var tsIndex:Int = 0
+        while (true) {
+            if let oldStamp = trig.getPastTimestamp(tsIndex) {
+                let age = currentTime &- oldStamp
+                if (age > minimumSampleIndex) {
+                    return SampleIndex(age).asTime()
+                }
+                tsIndex += 1
+            } else {
+                // there is no recorded timestamp of this age.  we ran out of old timestamps to check.
+                return nil
             }
         }
-        return nil
     }
     
     //

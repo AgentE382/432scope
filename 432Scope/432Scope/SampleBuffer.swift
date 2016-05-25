@@ -133,9 +133,10 @@ class SampleBuffer {
         var currentSample:Sample = 0
         var subrangeEndIndex:Int = 0
         func getLocalMinMax() -> (min:Sample, max:Sample) {
+            
             // eliminate the obvious stuff ...
             if subrangeSampleCount <= 1 {
-                let theLonelySample = samples[subrangeStartIndex]
+                let theLonelySample = samples[wrapIndex(subrangeStartIndex)]
                 return (min:theLonelySample, max:theLonelySample)
             }
             

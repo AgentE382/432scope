@@ -26,7 +26,7 @@ let CONFIG_DISPLAY_TIME_LIMITS = TimeRange(newest:0, oldest:-10)
 let CONFIG_DISPLAY_VOLTAGE_LIMITS = VoltageRange(min:-20, max:20)
 
 // scope view zooming limits
-let CONFIG_DISPLAY_TIME_SPAN_LIMITS:(min:Time, max:Time) = (0.001, CONFIG_DISPLAY_TIME_LIMITS.span)
+let CONFIG_DISPLAY_TIME_SPAN_LIMITS:(min:Time, max:Time) = (0.0001, CONFIG_DISPLAY_TIME_LIMITS.span)
 let CONFIG_DISPLAY_VOLTAGE_SPAN_LIMITS:(min:Voltage, max:Voltage) = (0.1, CONFIG_DISPLAY_VOLTAGE_LIMITS.span)
 
 // grid line spacing constant.  This is essentially the minimum space between gridlines.
@@ -48,7 +48,7 @@ let CONFIG_BAUDRATE:Int = 3000000
 let CONFIG_INCOMING_SAMPLE_SIZE_IN_BYTES:Int = 2
 
 // the 432's sample rate, in Hertz
-let CONFIG_SAMPLERATE:Int = 100000
+let CONFIG_SAMPLERATE:Int = 120000
 
 // the length of time to store in the sample buffers
 let CONFIG_BUFFER_LENGTH:Int = 10

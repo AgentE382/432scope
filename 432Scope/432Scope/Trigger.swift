@@ -33,33 +33,40 @@ class Trigger {
     var notifications:TriggerNotifications
     
     //
-    // EVENT TIMEKEEPING ARRAY
+    // EVENT TIMEKEEPING ARRAY - a circular buffer of these, capacity ((samplerate * bufferLength)/3), this should allow for half-deep events at the fastest possible sample rate this scope can handle.
     //
     
     private(set) var currentTimestamp:UInt = 0
-    private(set) var eventTimestamps:[UInt] = []
-    private var capacity:Int = 0 // this is really the age of the oldest timestamp we need to preserve.
+    private var eventTimestamps:ContiguousArray<UInt?>
+    private var capacity:Int = 0
+    private var writeIndex:Int = 0
+
+    private func wrapTimestampIndex(index:Int) -> Int {
+        var rval = index
+        while ( rval < 0 ) {
+            rval += capacity
+        }
+        while ( rval >= capacity ) {
+            rval -= capacity
+        }
+        return rval
+    }
     
     private var lastEventTimestamp:UInt? {
         get {
-            let eventCount = eventTimestamps.count
-            if ( eventCount == 0 ) {
-                return nil
-            }
-            return eventTimestamps[eventCount-1]
+            return eventTimestamps[wrapTimestampIndex(writeIndex+1)]
         }
     }
     
     private func recordTimestamp(timestamp:UInt) {
-        eventTimestamps.append(timestamp)
-        
-        // while we're at it, cull any really old ones.
-        for _ in 0..<eventTimestamps.count {
-            let age = currentTimestamp &- eventTimestamps[0]
-            if (age >= UInt(capacity)) {
-                eventTimestamps.removeAtIndex(0)
-            }
-        }
+        eventTimestamps[writeIndex] = timestamp
+        writeIndex = wrapTimestampIndex(writeIndex-1)
+    }
+    
+    func getPastTimestamp(index:Int) -> UInt? {
+        // index 0 is the newest, index++ is older
+        let realIndex = wrapTimestampIndex(writeIndex + 1 + index)
+        return eventTimestamps[realIndex]
     }
     
     //
@@ -129,9 +136,16 @@ class Trigger {
     // INIT AND BASE CLASS FUNCTIONS TO OVERRIDE
     //
     
-    init( capacity:Int, notifications:TriggerNotifications ) {
-        self.capacity = capacity
+    init( notifications:TriggerNotifications ) {
         self.notifications = notifications
+        
+        // set up the timestamp record
+        let arraySize = ((CONFIG_SAMPLERATE * CONFIG_BUFFER_LENGTH) / 3)
+        eventTimestamps = ContiguousArray<UInt?>(count: arraySize, repeatedValue: nil)
+        eventTimestamps.reserveCapacity(arraySize)
+        
+        capacity = arraySize
+        writeIndex = capacity - 1
     }
     
     func processSample( sample:Sample ) {
@@ -188,8 +202,7 @@ class RisingEdgeTrigger: Trigger {
         self.sampleFilter = FastSampleAveragingFilter(depthExponent: filterDepth, initialAverage: Voltage(0.0).asSample())
         self.autoLevelFilter = AveragingFilter<Sample>(bufferSize: Int(exp2(Double(filterDepth))),
             startingAverage: triggerLevel.asSample())
-        // setting capacity to CONFIG_SAMPLERATE means we'll only watch the latest second of events.  this will be a problem for <1Hz signals.
-        super.init(capacity: CONFIG_SAMPLERATE, notifications: notifications)
+        super.init(notifications: notifications)
     }
     
     enum RisingEdgeTriggerState {

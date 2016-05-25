@@ -6,25 +6,6 @@
 #include "adc14.h"
 
 /*
- * This project is for testing code that leads to an oscilloscope.
- *
- * WHAT IT DOES:
- * -100 kHz sample rate.
- * -3 Mbps UART.
- *
- * ADC monitor:
- * -LEDB indicates active single-channel-repeat mode.
- *
- * UART monitor:
- * -tx: LEDR and LEDG are on when there's tx data in the UART pipe.
- * 		so the led's whiteness indicates saturation.
- * 	LED1 comes on if the UART buffer is about to overflow.
- *
- * -switch it on and off with 's' and 'p' on the console, or pushbuttons.
- * -periodic_send_test in here was used for testing before ADC code was working.
- *
- * WHAT IT USES:
- *
  * DCOCLK = 48 MHz = MCLK
  * SMCLK = /4 = 12 MHz
  * HSMCLK = /2 = 24 MHz
@@ -49,7 +30,6 @@ void main(void)
     InitializeLEDs( );
     InitializeButtons( );
     InitializeUart( );
- //   InitializePST( );
     InitializeADC( );
     __enable_interrupt();
 

@@ -82,11 +82,12 @@ inline void Uart_StartSend( )
 {
 	EUSCI_A0->IE |= EUSCI_A_IE_TXIE;
 	EUSCI_A0->IFG |= EUSCI_A_IFG_TXIFG;
-	TURN_ON_LEDR;
 	TURN_ON_LEDG;
 	saturation = uartTxQueueIndex - uartTxSendIndex;
-	if ( saturation > 100 ) {
+	if ( saturation > 200 ) {
 		TURN_ON_LED1;
+	} else {
+		TURN_OFF_LED1;
 	}
 }
 
@@ -163,7 +164,6 @@ void euscia0_ISR( )
 		// if this is the end, shut down the interrupt and bail.
 		if ( uartTxSendIndex == uartTxQueueIndex ) {
 			EUSCI_A0->IE &= ~EUSCI_A_IE_TXIE;
-			TURN_OFF_LEDR;
 			TURN_OFF_LEDG;
 			break;
 		}

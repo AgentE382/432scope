@@ -254,8 +254,10 @@ class ChannelViewController: NSViewController {
         
         // frequency meter
         if let period = channel!.newestTriggerEvent?.samplesSinceLastEvent {
-            let newFrequency:Frequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
-            labelFrequencyMeter.stringValue = frequencyMeterReadingFilter.filter(newFrequency).asString()
+            if (period != 0) {
+                let newFrequency:Frequency = Frequency(CONFIG_SAMPLERATE) / Frequency(period)
+                labelFrequencyMeter.stringValue = frequencyMeterReadingFilter.filter(newFrequency).asString()
+            }
         }
         
         // if there's an auto-level trigger, update that reading ...
